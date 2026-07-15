@@ -1,21 +1,23 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Canvas } from "@react-three/fiber";
 import { useGameStore } from "@/store/gameStore";
 import { Room } from "@/components/game/Room";
 import { FPSControls } from "@/components/game/FPSControls";
 import { ConfidenceSlider } from "@/components/ui/ConfidenceSlider";
 import { FeedbackCard } from "@/components/ui/FeedbackCard";
-import { scenario1 } from "@/scenarios/scenario1";
+import { getScenario } from "@/lib/scenarios";
 
 export default function GameClient() {
-  const { phase, setPhase, startTimer, submitDecision, nextScenario, hintUsed, useHint } = useGameStore();
+  const router = useRouter();
+  const { phase, setPhase, startTimer, submitDecision, nextScenario, hintUsed, useHint, currentScenario, totalScenarios } = useGameStore();
   const [inspectedId, setInspectedId] = useState<string | null>(null);
   const [showJudge, setShowJudge] = useState(false);
   const [lastResult, setLastResult] = useState<{ correct: boolean } | null>(null);
 
-  const scenario = scenario1;
+  const scenario = getScenario(currentScenario);
 
   const handleInspect = (id: string) => {
     if (phase !== "exploring" && phase !== "investigating") return;
@@ -43,8 +45,12 @@ export default function GameClient() {
   const handleNext = () => {
     setLastResult(null);
     setInspectedId(null);
-    setPhase("exploring");
     nextScenario();
+    if (currentScenario >= totalScenarios) {
+      router.push("/result");
+    } else {
+      setPhase("exploring");
+    }
   };
 
   const inspectedObj = scenario.objects.find((o) => o.id === inspectedId);
@@ -58,6 +64,13 @@ export default function GameClient() {
           <FPSControls />
         </Suspense>
       </Canvas>
+
+      {/* シナリオ番号 */}
+      {(phase === "exploring" || phase === "investigating") && (
+        <div className="absolute top-4 left-4 text-white/70 text-xs pointer-events-none">
+          シナリオ {currentScenario} / {totalScenarios}
+        </div>
+      )}
 
       {/* クロスヘア */}
       {phase === "exploring" && (
