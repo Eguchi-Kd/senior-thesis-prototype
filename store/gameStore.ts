@@ -19,6 +19,13 @@ interface ScenarioLog {
   correct: boolean;
 }
 
+interface TransferLog {
+  questionId: string;
+  answer: string;
+  correct: boolean;
+  confidence: number;
+}
+
 interface GameState {
   phase: GamePhase;
   currentScenario: number;
@@ -26,6 +33,7 @@ interface GameState {
   rtStartTime: number | null;
   hintUsed: boolean;
   logs: ScenarioLog[];
+  transferTestLogs: TransferLog[];
   sessionId: string;
 
   setPhase: (phase: GamePhase) => void;
@@ -33,6 +41,7 @@ interface GameState {
   stopTimer: () => number;
   useHint: () => void;
   submitDecision: (decision: Decision, confidence: number, correct: boolean) => void;
+  submitTransferTest: (questionId: string, answer: "fraud" | "safe", correct: boolean, confidence: number) => void;
   nextScenario: () => void;
   reset: () => void;
 }
@@ -46,6 +55,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   rtStartTime: null,
   hintUsed: false,
   logs: [],
+  transferTestLogs: [],
   sessionId: generateSessionId(),
 
   setPhase: (phase) => set({ phase }),
@@ -76,6 +86,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ logs: [...logs, log] });
   },
 
+  submitTransferTest: (questionId, answer, correct, confidence) =>
+    set((state) => ({
+      transferTestLogs: [...state.transferTestLogs, { questionId, answer, correct, confidence }],
+    })),
+
   nextScenario: () => {
     const { currentScenario, totalScenarios } = get();
     if (currentScenario >= totalScenarios) {
@@ -92,6 +107,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       rtStartTime: null,
       hintUsed: false,
       logs: [],
+      transferTestLogs: [],
       sessionId: generateSessionId(),
     }),
 }));
