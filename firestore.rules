@@ -1,0 +1,20 @@
+rules_version = '2';
+
+// ハイブリッド構成:
+//   配信は GitHub Pages、Firebase は Firestore へのログ/セーブ書き込みにのみ使用する。
+//   安全性は「書込のみ許可・読取禁止」ルールで担保する（NEXT_PUBLIC_* の秘匿では守らない）。
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 被験者セッションログ / セーブデータ
+    match /sessions/{docId} {
+      allow create: if true;                   // 認証なしの匿名書き込みを許可（大学祭での即時プレイ用）
+      allow read, update, delete: if false;    // 読取・改ざん・削除は禁止（閲覧は Firebase Console 管理者のみ）
+    }
+
+    // 上記以外へのアクセスはすべて拒否
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
