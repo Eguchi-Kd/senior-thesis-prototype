@@ -6,12 +6,11 @@ import { useGameStore } from "@/store/gameStore";
 
 export default function TitlePage() {
   const router = useRouter();
-  const { reset, setPhase } = useGameStore();
+  const reset = useGameStore((s) => s.reset);
 
   const handleStart = () => {
-    reset();
-    setPhase("exploring");
-    router.push("/game");
+    reset(); // 新しいセッションを初期化（sessionId・提示順・計測をリセット）
+    router.push("/consent");
   };
 
   return (
@@ -32,7 +31,7 @@ export default function TitlePage() {
           <p>🏠 3D空間を探索して不審な点を探そう</p>
           <p>📱 スマホやPCの画面と周囲の情報を照らし合わせよう</p>
           <p>⚡ 反応速度も計測されます — 直感を鍛えよう</p>
-          <p>🎯 4つのシナリオに挑戦！</p>
+          <p>🎯 詐欺を見破ろう！（正常な通知もあります）</p>
         </div>
 
         <motion.button

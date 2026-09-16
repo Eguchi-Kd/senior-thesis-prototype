@@ -8,8 +8,8 @@ service cloud.firestore {
 
     // 被験者セッションログ / セーブデータ
     match /sessions/{docId} {
-      allow create: if true;                   // 認証なしの匿名書き込みを許可（大学祭での即時プレイ用）
-      allow read, update, delete: if false;    // 読取・改ざん・削除は禁止（閲覧は Firebase Console 管理者のみ）
+      allow create, update: if true;           // 匿名の作成・merge更新を許可（フェーズごとの逐次保存＝途中離脱対策）
+      allow read, delete: if false;            // 読取・削除は禁止（閲覧は Firebase Console 管理者のみ）
     }
 
     // 上記以外へのアクセスはすべて拒否

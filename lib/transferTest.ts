@@ -1,4 +1,4 @@
-export interface TransferQuestion {
+export interface TestQuestion {
   id: string;
   title: string;
   scenario: string;
@@ -6,9 +6,11 @@ export interface TransferQuestion {
   explanation: string;
 }
 
-export const transferTestQuestions: TransferQuestion[] = [
+// 事後（転移）テスト：未学習の文脈での応用力を測る。
+// 詐欺3問＋安全2問の混在で、誤警報（安全を詐欺と誤答）も測定できるようにする。
+export const transferTestQuestions: TestQuestion[] = [
   {
-    id: "T1",
+    id: "POST_F1",
     title: "当選通知メール",
     scenario:
       "メールに「おめでとうございます！あなたはキャンペーンに当選しました。賞金100万円を受け取るには今すぐ手続きを → http://prize-claim.xyz」と届きました。あなたはこのキャンペーンに応募した記憶はありません。",
@@ -17,7 +19,7 @@ export const transferTestQuestions: TransferQuestion[] = [
       "応募していないキャンペーンの当選通知は詐欺です。「応募した記憶がない（現実）」と「当選した（デジタル）」の矛盾を見抜くことが重要です。",
   },
   {
-    id: "T2",
+    id: "POST_F2",
     title: "家族からの緊急LINE",
     scenario:
       "カレンダーには「兄 → 海外出張中 7/1〜7/10」とメモがあります。LINEに「弟だけど事故にあって警察に保護金が必要。今すぐ3万円振り込んで」とメッセージが届きました。",
@@ -26,12 +28,30 @@ export const transferTestQuestions: TransferQuestion[] = [
       "カレンダーの記録（兄は海外出張中）と、国内で事故に遭ったというLINEの内容が矛盾しています。これはなりすまし詐欺（オレオレ詐欺）のパターンです。",
   },
   {
-    id: "T3",
+    id: "POST_F3",
     title: "アプリ更新通知",
     scenario:
       "スマートフォンに「銀行アプリの重要なセキュリティ更新があります。今すぐダウンロード → http://mybank-update.net/app」という通知が届きました。公式アプリストア（App Store / Google Play）には新しい更新は表示されていません。",
     isFraud: true,
     explanation:
       "公式アプリストアに更新が出ていないのに外部リンクからダウンロードを促す通知は偽物です。現実（ストアの状態）とデジタル通知の矛盾です。",
+  },
+  {
+    id: "POST_S1",
+    title: "ポイント有効期限のお知らせ",
+    scenario:
+      "普段使っているポイントアプリから「保有ポイント500ptの有効期限が今月末です。アプリを開いてご確認ください」と通知が来ました。リンクは無く、公式アプリを開くよう案内しています。過去にもこの時期に同様の通知が来ています。",
+    isFraud: false,
+    explanation:
+      "外部リンクで誘導せず「公式アプリを開いて確認」と案内しており、金銭要求もありません。普段利用しているサービスからの定期的な通知で、内容にも矛盾がなく正常です。",
+  },
+  {
+    id: "POST_S2",
+    title: "宅配ボックスの受け取り通知",
+    scenario:
+      "在宅中に「お荷物を宅配ボックス3番に入れました。暗証番号は伝票をご確認ください」と配達アプリの公式通知が届きました。ちょうど今日届く予定の荷物があり、玄関で不在票ではなく配達アプリの通知として受け取っています。",
+    isFraud: false,
+    explanation:
+      "今日届く予定という現実と通知が一致し、公式アプリ経由で暗証番号も外部に要求していません。矛盾も不審なリンクもなく正常な通知です。",
   },
 ];
