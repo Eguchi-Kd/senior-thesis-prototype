@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { buildSessionOrder, getScenarioById } from "@/lib/scenarios";
+import type { Difficulty } from "@/scenarios/types";
 
 export type Decision = "report" | "ignore";
 export type Answer = "fraud" | "safe";
@@ -25,6 +26,7 @@ export function deriveSignalType(decision: Decision, isFraud: boolean): SignalTy
 export interface ScenarioLog {
   scenarioId: number;
   isFraud: boolean;
+  difficulty: Difficulty; // 項目難易度（易/中/難）— 項目レベル分析・天井効果の確認に使う
   presentationOrder: number; // 提示順位（1始まり）— 順序効果の統制に使う
   reactionTimeMs: number;
   decision: Decision;
@@ -186,6 +188,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const log: ScenarioLog = {
       scenarioId,
       isFraud,
+      difficulty: getScenarioById(scenarioId).difficulty,
       presentationOrder: currentIndex + 1,
       reactionTimeMs,
       decision,

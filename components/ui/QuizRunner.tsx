@@ -86,6 +86,19 @@ export function QuizRunner({
         >
           <p className="text-xs font-bold text-blue-600 mb-2 uppercase tracking-wide">{question.title}</p>
           <p className="text-gray-800 text-sm leading-relaxed">{question.scenario}</p>
+          {question.details && (
+            <div className="bg-gray-100 rounded-xl p-3 mt-3 text-xs space-y-1">
+              {question.details.senderAddress && (
+                <p className="text-gray-500 font-mono break-all">送信元：<span className="text-gray-800">{question.details.senderAddress}</span></p>
+              )}
+              {question.details.url && (
+                <p className="text-gray-500 font-mono break-all">リンク先：<span className="text-blue-700">{question.details.url}</span></p>
+              )}
+              {question.details.date && (
+                <p className="text-gray-500">日付：<span className="text-gray-800">{question.details.date}</span></p>
+              )}
+            </div>
+          )}
         </motion.div>
 
         <div className="flex gap-3 mb-5">

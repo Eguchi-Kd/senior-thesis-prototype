@@ -130,13 +130,19 @@ export default function GameClient() {
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm">
             <h3 className="font-bold text-lg mb-3">{inspectedObj.label}</h3>
             {typeof inspectedObj.content === "string" ? (
-              <p className="text-gray-700 text-sm mb-4">{inspectedObj.content}</p>
+              <p className="text-gray-700 text-sm mb-4 whitespace-pre-line">{inspectedObj.content}</p>
             ) : (
-              <div className="bg-gray-100 rounded-xl p-3 mb-4 font-mono text-sm">
-                <p className="text-xs text-gray-500 mb-1">
-                  送信者：{inspectedObj.content.sender} {inspectedObj.content.timestamp}
-                </p>
-                <p className="text-gray-800">{inspectedObj.content.body}</p>
+              <div className="bg-gray-100 rounded-xl p-3 mb-4 text-sm space-y-1">
+                {/* 手がかりを別行で明示：送信元名・実アドレス・日時・本文・リンク先URL */}
+                <p className="text-xs text-gray-500">送信元：<span className="text-gray-700">{inspectedObj.content.sender}</span></p>
+                {inspectedObj.content.senderAddress && (
+                  <p className="text-xs text-gray-500 font-mono break-all">アドレス：<span className="text-gray-800">{inspectedObj.content.senderAddress}</span></p>
+                )}
+                <p className="text-xs text-gray-500">日時：<span className="text-gray-700">{inspectedObj.content.timestamp}</span></p>
+                <p className="text-gray-800 pt-1 border-t border-gray-200 mt-1">{inspectedObj.content.body}</p>
+                {inspectedObj.content.url && (
+                  <p className="text-xs text-gray-500 font-mono break-all pt-1">リンク先：<span className="text-blue-700">{inspectedObj.content.url}</span></p>
+                )}
               </div>
             )}
             <button

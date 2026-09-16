@@ -1,52 +1,61 @@
 import type { TestQuestion } from "./transferTest";
 
-// 事前（ベースライン）テスト：ゲーム前の詐欺見極め能力を測る。
-// 事後（転移）テストと「並行フォーム」— 同じ難易度・構造で中身が違う問題にし、
-// 「答えを覚えただけ（テスト効果）」の交絡を避ける。詐欺3問＋安全2問。
+// 事前（ベースライン）テスト：事後（転移）テストと並行フォーム。
+// 難易度（易/中/難）と詐欺:安全＝3:2の構成を事後と揃え、内容だけ変えて「答えの丸暗記」を防ぐ。
 export const preTestQuestions: TestQuestion[] = [
   {
     id: "PRE_F1",
-    title: "還付金のSMS",
+    title: "宅配便の再配達",
     scenario:
-      "「【税務署】所得税の還付金があります。受け取り手続きはこちら → http://tax-refund.xyz/apply」というSMSが届きました。あなたは還付の申請をした覚えがありません。",
+      "フリマアプリで買った品物の到着を待っています。「ご不在のため持ち帰りました。再配達のお申し込みはこちら」とSMSが来ました。",
     isFraud: true,
+    difficulty: "medium",
+    details: { senderAddress: "sagawa@sagawa-redelivery.info", url: "http://sagawa-redelivery.info/re", date: "配送予定日の前日" },
     explanation:
-      "申請していない還付金の通知で、公式ドメインでない外部リンクへ誘導しています。行政機関がSMSのリンクで手続きを求めることは通常ありません。",
+      "荷物待ちは事実でも、送信元は公式（sagawa-exp.co.jp）ではなく sagawa-redelivery.info、URLも http です。文脈が本物でもドメインで詐欺と分かります。",
   },
   {
     id: "PRE_F2",
-    title: "配送業者の不在通知",
+    title: "アカウントの確認",
     scenario:
-      "「お荷物のお届けにあがりましたがご不在でした。再配達はこちら → http://sagawa-redelivery.top」とSMSが来ました。あなたは今日は一日中在宅しており、チャイムも鳴っていません。",
+      "通販サイトを名乗るメールで「アカウントに異常なアクセスがありました。確認しないと利用停止になります」とあり、確認リンクが載っています。",
     isFraud: true,
+    difficulty: "hard",
+    details: { senderAddress: "support@amazon-alert.com", url: "https://amazon.co.jp.account-verify.info/login" },
     explanation:
-      "一日中在宅していた（現実）のに不在通知が来ており、リンク先も公式ドメインではありません。現実とデジタル通知の矛盾を突く典型的なフィッシングです。",
+      "URLは『amazon.co.jp』で始まりますが、実際のドメインは末尾の『account-verify.info』です（サブドメイン偽装）。ドメインは末尾で判断します。",
   },
   {
     id: "PRE_F3",
-    title: "アカウント停止の警告",
+    title: "還付金のお知らせ",
     scenario:
-      "「あなたの動画配信アカウントで異常なアクセスを検知しました。24時間以内に確認しないと停止します → http://account-verify-now.info」とメールが届きました。送信元は普段と違うアドレスです。",
+      "「税金の還付金があります。受け取り手続きは本日中にこちらから」とSMSが届きました。申請した覚えはありません。",
     isFraud: true,
+    difficulty: "easy",
+    details: { senderAddress: "info@refund-go.xyz", url: "http://refund-go.xyz/apply" },
     explanation:
-      "「24時間以内」と焦らせ、公式でないアドレス・リンクへ誘導しています。緊急性を煽って冷静な判断をさせないのは詐欺の常套手段です。",
+      "申請した覚えのない還付通知で、ドメインも .xyz の非公式、http です。行政がSMSのリンクで手続きを求めることは通常ありません。",
   },
   {
     id: "PRE_S1",
-    title: "クレジットカードの利用明細",
+    title: "サブスクの決済完了",
     scenario:
-      "カード会社の公式アプリから「今月のご利用明細が確定しました。アプリでご確認ください」と通知が来ました。外部リンクはなく、実際に先週カードを使った覚えがあります。",
+      "動画配信サービスを月額で契約しています。公式アプリから「今月分の決済が完了しました。明細はアプリでご確認ください」と通知が来ました。リンクや入力要求はありません。",
     isFraud: false,
+    difficulty: "medium",
+    details: { senderAddress: "receipt@video-service.co.jp" },
     explanation:
-      "実際に利用した現実と一致し、外部リンクや支払い要求もありません。公式アプリ内で確認を促すだけの正常な明細通知です。",
+      "契約している事実と一致し、正規ドメインからで、リンクや情報入力を求めていません。正常な決済通知です。",
   },
   {
     id: "PRE_S2",
-    title: "図書館の返却リマインド",
+    title: "ログイン用の確認コード",
     scenario:
-      "利用している図書館アプリから「借りている本の返却期限が3日後です」と通知が来ました。実際に先週その図書館で本を借りており、金銭やリンクの要求はありません。",
+      "自分でメールにログインしようとした直後に「確認コード: 428915（他人には教えないでください）」というメッセージが届きました。ちょうどログイン画面でコード入力を求められています。",
     isFraud: false,
+    difficulty: "hard",
+    details: { senderAddress: "no-reply@mail-service.co.jp" },
     explanation:
-      "本を借りた現実と一致し、金銭要求も不審なリンクもありません。利用中のサービスからの正常なリマインド通知です。",
+      "自分のログイン操作と一致して届いた二段階認証コードで、正規ドメインから、コードを外部に入力させるリンクもありません。正常な認証コードです。",
   },
 ];
