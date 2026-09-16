@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useGameStore } from "@/store/gameStore";
-import { getScenario } from "@/lib/scenarios";
+import { getScenarioById } from "@/lib/scenarios";
 
 const ROOM_W = 10;
 const ROOM_H = 3;
@@ -145,8 +145,8 @@ function InteractableObject({
 
 // ─── メインルーム ─────────────────────────────────────
 export function Room({ onInspect }: { onInspect: (id: string) => void }) {
-  const { currentScenario } = useGameStore();
-  const scenario = getScenario(currentScenario);
+  const { scenarioOrder, currentIndex } = useGameStore();
+  const scenario = getScenarioById(scenarioOrder[currentIndex]);
 
   return (
     <group>

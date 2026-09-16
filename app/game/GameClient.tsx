@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Canvas } from "@react-three/fiber";
 import { useGameStore } from "@/store/gameStore";
@@ -8,22 +8,28 @@ import { Room } from "@/components/game/Room";
 import { FPSControls } from "@/components/game/FPSControls";
 import { ConfidenceSlider } from "@/components/ui/ConfidenceSlider";
 import { FeedbackCard } from "@/components/ui/FeedbackCard";
-import { getScenario } from "@/lib/scenarios";
+import { getScenarioById } from "@/lib/scenarios";
+import { saveSnapshot, registerDropoutSave } from "@/lib/logger";
 
 export default function GameClient() {
   const router = useRouter();
-  const { phase, setPhase, startTimer, submitDecision, nextScenario, hintUsed, useHint, currentScenario, totalScenarios } = useGameStore();
+  const { phase, setPhase, startTimer, submitDecision, nextScenario, hintUsed, useHint, recordInspect, scenarioOrder, currentIndex } = useGameStore();
   const [inspectedId, setInspectedId] = useState<string | null>(null);
   const [showJudge, setShowJudge] = useState(false);
   const [lastResult, setLastResult] = useState<{ correct: boolean } | null>(null);
 
-  const scenario = getScenario(currentScenario);
+  const scenarioId = scenarioOrder[currentIndex];
+  const scenario = getScenarioById(scenarioId);
+
+  // 離脱（タブを閉じる/バックグラウンド化）時のベストエフォート保存
+  useEffect(() => registerDropoutSave(), []);
 
   const handleInspect = (id: string) => {
     if (phase !== "exploring" && phase !== "investigating") return;
+    recordInspect(id);
     setInspectedId(id);
     setPhase("investigating");
-    if (!hintUsed) startTimer();
+    startTimer(); // シナリオ内で最初の調査時のみ計測開始（store側でガード）
   };
 
   const handleCloseInspect = () => {
@@ -36,17 +42,19 @@ export default function GameClient() {
     const correct =
       (decision === "report" && scenario.isFraud) ||
       (decision === "ignore" && !scenario.isFraud);
-    submitDecision(decision, confidence, correct);
+    submitDecision(decision, confidence, correct, scenario.isFraud);
     setLastResult({ correct });
     setShowJudge(false);
     setPhase("feedback");
+    void saveSnapshot(); // シナリオ完了ごとに逐次保存
   };
 
   const handleNext = () => {
     setLastResult(null);
     setInspectedId(null);
+    const isLast = currentIndex >= scenarioOrder.length - 1;
     nextScenario();
-    if (currentScenario >= totalScenarios) {
+    if (isLast) {
       router.push("/result");
     } else {
       setPhase("exploring");
@@ -75,7 +83,7 @@ export default function GameClient() {
       {/* シナリオ番号 */}
       {(phase === "exploring" || phase === "investigating") && (
         <div className="absolute top-4 left-4 text-white/70 text-xs pointer-events-none">
-          シナリオ {currentScenario} / {totalScenarios}
+          シナリオ {currentIndex + 1} / {scenarioOrder.length}
         </div>
       )}
 
