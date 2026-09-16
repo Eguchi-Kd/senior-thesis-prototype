@@ -57,6 +57,13 @@ export default function GameClient() {
 
   return (
     <div className="w-full h-screen bg-black relative overflow-hidden">
+      {/* 縦持ち時の回転誘導オーバーレイ（横画面でプレイさせる） */}
+      <div className="hidden portrait:flex fixed inset-0 z-[60] bg-gray-950 flex-col items-center justify-center text-center px-8">
+        <div className="text-6xl mb-4 animate-pulse">📱↻</div>
+        <p className="text-white text-lg font-bold">端末を横向きにしてください</p>
+        <p className="text-gray-400 text-sm mt-2">このゲームは横画面でプレイします</p>
+      </div>
+
       {/* 3Dキャンバス */}
       <Canvas shadows camera={{ fov: 75 }} style={{ width: "100%", height: "100%" }}>
         <Suspense fallback={null}>
@@ -91,15 +98,22 @@ export default function GameClient() {
 
       {/* 探索ガイド */}
       {phase === "exploring" && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm text-center">
-          オブジェクトに近づいてタップして調べよう
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-xs text-center pointer-events-none px-4">
+          左スティックで移動 ・ 右スティックで見回す<br />
+          （PC: WASDで移動・ドラッグで視点） 近づいてタップで調べる
         </div>
       )}
 
-      {/* ジョイスティックゾーン */}
+      {/* 移動ジョイスティックゾーン（左下） */}
       <div
         id="joystick-zone"
-        className="absolute bottom-0 left-0 w-1/2 h-48 pointer-events-auto"
+        className="absolute bottom-0 left-0 w-1/3 h-1/2 pointer-events-auto z-30"
+      />
+
+      {/* 視点ジョイスティックゾーン（右下） */}
+      <div
+        id="look-zone"
+        className="absolute bottom-0 right-0 w-1/3 h-1/2 pointer-events-auto z-30"
       />
 
       {/* 調査パネル */}

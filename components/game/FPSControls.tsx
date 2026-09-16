@@ -6,65 +6,94 @@ import * as THREE from "three";
 import nipplejs from "nipplejs";
 
 const MOVE_SPEED = 0.05;
-const LOOK_SPEED = 0.003;
+const LOOK_RATE = 0.03;          // 右スティックの毎フレーム回転量（押し続けで回転）
+const MOUSE_SENSITIVITY = 0.003; // PC: ドラッグ量あたりの回転量
 const PLAYER_HEIGHT = 1.7;
+const PITCH_LIMIT = Math.PI / 3; // 上下視点の可動域 ±60°
 
 export function FPSControls() {
-  const { camera } = useThree();
-  const moveDir = useRef({ x: 0, y: 0 });
-  const lookDelta = useRef({ x: 0, y: 0 });
+  const { camera, gl } = useThree();
+  const moveDir = useRef({ x: 0, y: 0 });      // 左スティック / WASD（保持）
+  const lookVec = useRef({ x: 0, y: 0 });      // 右スティック（保持・レート制御）
+  const mouseDelta = useRef({ x: 0, y: 0 });   // PCマウスドラッグ（毎フレーム消費）
   const pitchRef = useRef(0);
-  const joystickRef = useRef<ReturnType<typeof nipplejs.create> | null>(null);
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const moveStickRef = useRef<ReturnType<typeof nipplejs.create> | null>(null);
+  const lookStickRef = useRef<ReturnType<typeof nipplejs.create> | null>(null);
 
   useEffect(() => {
     camera.position.set(0, PLAYER_HEIGHT, 2);
     camera.rotation.order = "YXZ";
 
-    const leftZone = document.getElementById("joystick-zone");
-    if (!leftZone) return;
+    // 横画面ロック（Android等で有効。iOS Safari等の非対応環境は握りつぶし、回転オーバーレイでフォローする）
+    (async () => {
+      try {
+        await (screen.orientation as unknown as { lock?: (o: string) => Promise<void> })?.lock?.("landscape");
+      } catch {
+        /* 非対応環境：オーバーレイがフォールバック */
+      }
+    })();
 
-    joystickRef.current = nipplejs.create({
-      zone: leftZone,
-      mode: "dynamic",
-      color: "rgba(255,255,255,0.4)",
-    });
+    // ─── 左：移動ジョイスティック（常時可視） ───
+    const moveZone = document.getElementById("joystick-zone");
+    if (moveZone) {
+      moveStickRef.current = nipplejs.create({
+        zone: moveZone,
+        mode: "static",
+        position: { left: "50%", top: "50%" },
+        color: "rgba(255,255,255,0.5)",
+        size: 110,
+      });
+      moveStickRef.current.on("move", (evt) => {
+        const { vector } = evt.data;
+        moveDir.current = { x: vector.x, y: vector.y };
+      });
+      moveStickRef.current.on("end", () => {
+        moveDir.current = { x: 0, y: 0 };
+      });
+    }
 
-    joystickRef.current.on("move", (evt) => {
-      const { vector } = evt.data;
-      moveDir.current = { x: vector.x, y: vector.y };
-    });
+    // ─── 右：視点ジョイスティック（常時可視） ───
+    const lookZone = document.getElementById("look-zone");
+    if (lookZone) {
+      lookStickRef.current = nipplejs.create({
+        zone: lookZone,
+        mode: "static",
+        position: { left: "50%", top: "50%" },
+        color: "rgba(255,255,255,0.5)",
+        size: 110,
+      });
+      lookStickRef.current.on("move", (evt) => {
+        const { vector } = evt.data;
+        lookVec.current = { x: vector.x, y: vector.y };
+      });
+      lookStickRef.current.on("end", () => {
+        lookVec.current = { x: 0, y: 0 };
+      });
+    }
 
-    joystickRef.current.on("end", () => {
-      moveDir.current = { x: 0, y: 0 };
-    });
-
-    const onTouchStart = (e: TouchEvent) => {
-      const touch = e.touches[0];
-      if (touch.clientX < window.innerWidth / 2) return;
-      touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    // ─── PC：マウスドラッグで視点操作（クリックによる調査と両立） ───
+    const dom = gl.domElement;
+    const drag = { active: false, x: 0, y: 0 };
+    const onMouseDown = (e: MouseEvent) => {
+      drag.active = true;
+      drag.x = e.clientX;
+      drag.y = e.clientY;
     };
-
-    const onTouchMove = (e: TouchEvent) => {
-      if (!touchStartRef.current) return;
-      const touch = Array.from(e.touches).find((t) => t.clientX > window.innerWidth / 2);
-      if (!touch) return;
-      lookDelta.current = {
-        x: touch.clientX - touchStartRef.current.x,
-        y: touch.clientY - touchStartRef.current.y,
-      };
-      touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    const onMouseMove = (e: MouseEvent) => {
+      if (!drag.active) return;
+      mouseDelta.current.x += e.clientX - drag.x;
+      mouseDelta.current.y += e.clientY - drag.y;
+      drag.x = e.clientX;
+      drag.y = e.clientY;
     };
-
-    const onTouchEnd = () => {
-      touchStartRef.current = null;
-      lookDelta.current = { x: 0, y: 0 };
+    const onMouseUp = () => {
+      drag.active = false;
     };
+    dom.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
 
-    window.addEventListener("touchstart", onTouchStart, { passive: true });
-    window.addEventListener("touchmove", onTouchMove, { passive: true });
-    window.addEventListener("touchend", onTouchEnd);
-
+    // ─── PC：WASD / 矢印キーで移動 ───
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === "KeyW" || e.code === "ArrowUp") moveDir.current.y = 1;
       if (e.code === "KeyS" || e.code === "ArrowDown") moveDir.current.y = -1;
@@ -79,24 +108,38 @@ export function FPSControls() {
     window.addEventListener("keyup", onKeyUp);
 
     return () => {
-      joystickRef.current?.destroy();
-      window.removeEventListener("touchstart", onTouchStart);
-      window.removeEventListener("touchmove", onTouchMove);
-      window.removeEventListener("touchend", onTouchEnd);
+      moveStickRef.current?.destroy();
+      lookStickRef.current?.destroy();
+      dom.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [camera]);
+  }, [camera, gl]);
 
   useFrame(() => {
-    const { x: dx, y: dy } = lookDelta.current;
-    if (dx !== 0 || dy !== 0) {
-      camera.rotation.y -= dx * LOOK_SPEED;
-      pitchRef.current = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitchRef.current - dy * LOOK_SPEED));
-      camera.rotation.x = pitchRef.current;
-      lookDelta.current = { x: 0, y: 0 };
+    // ─── 視点：右スティック（レート）＋ PCマウスドラッグ（差分） ───
+    let yawDelta = 0;
+    let pitchDelta = 0;
+
+    if (lookVec.current.x !== 0 || lookVec.current.y !== 0) {
+      yawDelta += lookVec.current.x * LOOK_RATE;
+      pitchDelta += lookVec.current.y * LOOK_RATE; // スティック上倒し = 上を向く
+    }
+    if (mouseDelta.current.x !== 0 || mouseDelta.current.y !== 0) {
+      yawDelta += mouseDelta.current.x * MOUSE_SENSITIVITY;
+      pitchDelta -= mouseDelta.current.y * MOUSE_SENSITIVITY; // マウス下移動 = 下を向く
+      mouseDelta.current = { x: 0, y: 0 };
     }
 
+    if (yawDelta !== 0 || pitchDelta !== 0) {
+      camera.rotation.y -= yawDelta;
+      pitchRef.current = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitchRef.current + pitchDelta));
+      camera.rotation.x = pitchRef.current;
+    }
+
+    // ─── 移動：左スティック / WASD ───
     const { x: mx, y: my } = moveDir.current;
     if (mx !== 0 || my !== 0) {
       const forward = new THREE.Vector3(-Math.sin(camera.rotation.y), 0, -Math.cos(camera.rotation.y));
