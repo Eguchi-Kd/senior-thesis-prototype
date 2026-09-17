@@ -1,32 +1,37 @@
-export const scenario4 = {
+import type { Scenario } from "./types";
+
+// 詐欺・難：一見ポスターの公式URLで始まるが、実体は別ドメイン（サブドメイン偽装）＋不要なログイン要求。
+export const scenario4: Scenario = {
   id: 4,
-  title: "改ざんQRコード",
-  description: "部屋を探索して、不審な点を見つけよう",
+  title: "QRコードの読み取り",
+  description: "部屋を探索して、状況を確認しよう",
   anomaly: {
-    type: "qr_hijack",
-    clue: "ポスターに記載されている公式URLと、QRコードが示すURLのドメインが異なる",
+    type: "subdomain_spoof",
+    clue: "公式URLで始まるが実際のドメインは別物、かつ本来不要なログインを要求",
   },
+  difficulty: "hard",
   objects: [
     {
       id: "poster",
       label: "ポスター",
-      position: [-3, 2, -4] as [number, number, number],
-      content: "【大学祭2026】\n日時: 2026年11月3日（月）\n場所: 青森市民センター\n\n公式サイト: univ-fes2026.ac.jp\n※QRコードからもアクセスできます",
+      position: [-3, 2, -4],
+      content: "【学祭2026】\n日時: 11月3日\n公式サイト: aomori-fes.ac.jp\n（詳細はQRコードから。ログイン不要で閲覧できます）",
     },
     {
       id: "smartphone",
       label: "スマートフォン",
-      position: [-1.5, 1, -2] as [number, number, number],
+      position: [-1.5, 1, -2],
       content: {
-        type: "sms",
+        type: "system",
         sender: "QRスキャン結果",
-        body: "スキャンしたQRコードのURL:\nhttp://univ-fes-info.xyz/login\n\n（ポスター記載の公式URL: univ-fes2026.ac.jp）",
+        body: "読み取ったページを開きますか？ ログインが求められています。",
+        url: "http://aomori-fes.ac.jp.login-check.info/signin",
         timestamp: "現在",
       },
     },
   ],
   isFraud: true,
   explanation:
-    "ポスターには公式サイト「univ-fes2026.ac.jp」と書かれていますが、QRコードをスキャンすると「univ-fes-info.xyz」という全く別のドメインに誘導されます。QRコードは物理的に上から貼り替えられることがあります。",
-  learningPoint: "QRコードはそのまま信用せず、印刷物に記載されているURLと一致しているか必ず確認しましょう。特にログインを求めるページは要注意です。",
+    "URLは『aomori-fes.ac.jp』で始まるので一見公式に見えますが、実際のドメインは末尾の『login-check.info』です（aomori-fes.ac.jp はその前に付いたサブドメインに過ぎない）。ポスターは『ログイン不要』と明記しているのにログインを要求している点も矛盾。http でもあり、貼り替えQRによる誘導詐欺です。",
+  learningPoint: "URLは『どこで始まるか』でなく『末尾のドメイン』で判断します。印刷物の案内（ログイン不要など）と食い違う要求は疑いましょう。",
 };
