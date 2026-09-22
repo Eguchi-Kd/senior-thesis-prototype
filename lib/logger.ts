@@ -9,6 +9,7 @@ function buildPayload() {
     sessionId: s.sessionId,
     startedAt: s.startedAt,
     deviceInfo: s.deviceInfo,
+    testRun: s.testRun,
     scenarioOrder: s.scenarioOrder,
     consent: s.consent,
     demographics: s.demographics,

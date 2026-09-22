@@ -68,6 +68,7 @@ interface GameState {
   sessionId: string;
   startedAt: number;
   deviceInfo: { ua: string; screen: string; language: string } | null;
+  testRun: boolean;
 
   // シナリオ提示順
   scenarioOrder: number[];
@@ -117,6 +118,12 @@ const captureDeviceInfo = () => {
   };
 };
 
+// URLに ?test=1 が付いていればテスト/パイロット実行として記録し、分析時に除外できるようにする
+const isTestRun = () => {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("test") === "1";
+};
+
 // 現実側モダリティ（掲示物など）とデジタル側（スマホ）の両方を見たか判定
 function computeViewedBoth(scenarioId: number, inspected: string[]): boolean {
   const scenario = getScenarioById(scenarioId);
@@ -135,6 +142,7 @@ const initialState = () => ({
   sessionId: generateSessionId(),
   startedAt: Date.now(),
   deviceInfo: captureDeviceInfo(),
+  testRun: isTestRun(),
   scenarioOrder: buildSessionOrder(),
   currentIndex: 0,
   phase: "title" as GamePhase,
