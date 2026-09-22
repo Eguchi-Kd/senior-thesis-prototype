@@ -47,5 +47,7 @@ orchestrator/__pycache__/
 
 # analysis: サービスアカウント鍵（DB全権限の秘密情報）とエクスポート済みデータは絶対にコミットしない
 **/serviceAccountKey.json
+**/*firebase-adminsdk*.json
+analysis/*.json
 analysis/data/
 analysis/__pycache__/
