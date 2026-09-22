@@ -7,6 +7,8 @@ import { useGameStore } from "@/store/gameStore";
 import { saveSession, saveSnapshot } from "@/lib/logger";
 import { transferTestQuestions } from "@/lib/transferTest";
 import { QuizRunner } from "@/components/ui/QuizRunner";
+import { LearningCard } from "@/components/ui/LearningCard";
+import { getScenarioById } from "@/lib/scenarios";
 
 type Screen = "transfer" | "survey" | "score";
 
@@ -166,6 +168,23 @@ export default function ResultClient() {
             <span className="text-gray-300 text-xs">{transferCorrect} / {transferTestLogs.length} 問正解</span>
           </div>
         </motion.div>
+
+        {/* 獲得した学習カード（正解シナリオ分） */}
+        {logs.some((l) => l.correct) && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.65 }} className="mb-5">
+            <p className="text-gray-400 text-xs font-bold mb-3 uppercase tracking-wide">
+              獲得した学習カード（{logs.filter((l) => l.correct).length}枚）
+            </p>
+            <div className="space-y-3">
+              {logs.filter((l) => l.correct).map((l, i) => {
+                const s = getScenarioById(l.scenarioId);
+                return (
+                  <LearningCard key={l.scenarioId} title={s.title} learningPoint={s.learningPoint} index={i + 1} delay={0.1 * i} />
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
 
         <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }} onClick={handleReplay} className="w-full py-4 bg-blue-600 text-white text-lg font-black rounded-2xl">
           もう一度プレイ →

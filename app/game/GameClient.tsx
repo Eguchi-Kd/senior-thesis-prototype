@@ -6,6 +6,7 @@ import { Canvas } from "@react-three/fiber";
 import { useGameStore } from "@/store/gameStore";
 import { Room } from "@/components/game/Room";
 import { FPSControls } from "@/components/game/FPSControls";
+import { PostFX } from "@/components/game/PostFX";
 import { ConfidenceSlider } from "@/components/ui/ConfidenceSlider";
 import { FeedbackCard } from "@/components/ui/FeedbackCard";
 import { getScenarioById } from "@/lib/scenarios";
@@ -73,17 +74,29 @@ export default function GameClient() {
       </div>
 
       {/* 3Dキャンバス */}
-      <Canvas shadows camera={{ fov: 75 }} style={{ width: "100%", height: "100%" }}>
+      <Canvas shadows dpr={[1, 2]} camera={{ fov: 75 }} style={{ width: "100%", height: "100%" }}>
         <Suspense fallback={null}>
           <Room onInspect={handleInspect} />
           <FPSControls />
         </Suspense>
+        <PostFX />
       </Canvas>
 
-      {/* シナリオ番号 */}
+      {/* 進捗バー */}
       {(phase === "exploring" || phase === "investigating") && (
-        <div className="absolute top-4 left-4 text-white/70 text-xs pointer-events-none">
-          シナリオ {currentIndex + 1} / {scenarioOrder.length}
+        <div className="absolute top-4 left-4 w-40 pointer-events-none">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-white/70 text-xs">進捗</span>
+            <span className="text-white/70 text-xs ml-auto">
+              {currentIndex + 1} / {scenarioOrder.length}
+            </span>
+          </div>
+          <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-400 rounded-full transition-all duration-500"
+              style={{ width: `${((currentIndex + 1) / scenarioOrder.length) * 100}%` }}
+            />
+          </div>
         </div>
       )}
 
@@ -164,6 +177,7 @@ export default function GameClient() {
       {phase === "feedback" && lastResult && (
         <FeedbackCard
           correct={lastResult.correct}
+          title={scenario.title}
           explanation={scenario.explanation}
           learningPoint={scenario.learningPoint}
           onNext={handleNext}
