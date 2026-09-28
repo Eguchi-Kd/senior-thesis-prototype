@@ -8,7 +8,7 @@ import nipplejs from "nipplejs";
 const MOVE_SPEED = 0.05;
 const LOOK_RATE = 0.03;          // 右スティックの毎フレーム回転量（押し続けで回転）
 const MOUSE_SENSITIVITY = 0.003; // PC: ドラッグ量あたりの回転量
-const PLAYER_HEIGHT = 1.7;
+const PLAYER_HEIGHT = 1.6;
 const PITCH_LIMIT = Math.PI / 3; // 上下視点の可動域 ±60°
 
 export function FPSControls() {
@@ -21,7 +21,7 @@ export function FPSControls() {
   const lookStickRef = useRef<ReturnType<typeof nipplejs.create> | null>(null);
 
   useEffect(() => {
-    camera.position.set(0, PLAYER_HEIGHT, 2);
+    camera.position.set(0, PLAYER_HEIGHT, 2.3); // 入口側からデスクを正面に見る
     camera.rotation.order = "YXZ";
 
     // 横画面ロック（Android等で有効。iOS Safari等の非対応環境は握りつぶし、回転オーバーレイでフォローする）
@@ -148,9 +148,11 @@ export function FPSControls() {
       camera.position.addScaledVector(right, mx * MOVE_SPEED);
       camera.position.y = PLAYER_HEIGHT;
 
-      const limit = 4.5;
-      camera.position.x = Math.max(-limit, Math.min(limit, camera.position.x));
-      camera.position.z = Math.max(-limit, Math.min(limit, camera.position.z));
+      // 部屋の内寸に合わせた移動境界（壁抜け防止）
+      const LIMIT_X = 1.5;
+      const LIMIT_Z = 2.3;
+      camera.position.x = Math.max(-LIMIT_X, Math.min(LIMIT_X, camera.position.x));
+      camera.position.z = Math.max(-LIMIT_Z, Math.min(LIMIT_Z, camera.position.z));
     }
   });
 

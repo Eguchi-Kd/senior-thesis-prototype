@@ -15,6 +15,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SCAM DETECTIVE",
   description: "デジタル詐欺認知学習ゲーム — 卒業研究プロトタイプ",
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "SCAM DETECTIVE" },
+  other: { "mobile-web-app-capable": "yes" },
 };
 
 export const viewport: Viewport = {
@@ -22,6 +24,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover", // ノッチ/セーフエリアまで使い表示領域を最大化
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({

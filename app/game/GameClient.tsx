@@ -14,9 +14,11 @@ import { saveSnapshot, registerDropoutSave } from "@/lib/logger";
 
 export default function GameClient() {
   const router = useRouter();
-  const { phase, setPhase, startTimer, submitDecision, nextScenario, hintUsed, useHint, recordInspect, scenarioOrder, currentIndex } = useGameStore();
+  const { phase, setPhase, startTimer, markScenarioStart, markJudgeOpen, submitDecision, nextScenario, hintUsed, useHint, recordInspect, currentInspected, scenarioOrder, currentIndex } = useGameStore();
   const [inspectedId, setInspectedId] = useState<string | null>(null);
   const [showJudge, setShowJudge] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [showHint, setShowHint] = useState(false);
   const [lastResult, setLastResult] = useState<{ correct: boolean } | null>(null);
 
   const scenarioId = scenarioOrder[currentIndex];
@@ -24,6 +26,11 @@ export default function GameClient() {
 
   // 離脱（タブを閉じる/バックグラウンド化）時のベストエフォート保存
   useEffect(() => registerDropoutSave(), []);
+  // 各シナリオ開始で時刻・per-scenario状態をリセット
+  useEffect(() => {
+    markScenarioStart();
+    setShowHint(false);
+  }, [currentIndex, markScenarioStart]);
 
   const handleInspect = (id: string) => {
     if (phase !== "exploring" && phase !== "investigating") return;
@@ -33,10 +40,26 @@ export default function GameClient() {
     startTimer(); // シナリオ内で最初の調査時のみ計測開始（store側でガード）
   };
 
+  // 調査パネルを閉じたら探索に戻す（もう一方のオブジェクトも調べられる）
   const handleCloseInspect = () => {
     setInspectedId(null);
+    setPhase("exploring");
+  };
+
+  const openJudge = () => {
+    setShowConfirm(false);
+    markJudgeOpen(); // 判定UI表示時刻を記録
     setShowJudge(true);
     setPhase("judging");
+  };
+
+  // 判定ボタン：両方調べていなければ軽い確認を挟む（必須にはしない）
+  const handleOpenJudge = () => {
+    if (currentInspected.length < scenario.objects.length) {
+      setShowConfirm(true);
+    } else {
+      openJudge();
+    }
   };
 
   const handleSubmit = (confidence: number, decision: "report" | "ignore") => {
@@ -65,7 +88,7 @@ export default function GameClient() {
   const inspectedObj = scenario.objects.find((o) => o.id === inspectedId);
 
   return (
-    <div className="w-full h-screen bg-black relative overflow-hidden">
+    <div className="w-full h-dvh bg-black relative overflow-hidden">
       {/* 縦持ち時の回転誘導オーバーレイ（横画面でプレイさせる） */}
       <div className="hidden portrait:flex fixed inset-0 z-[60] bg-gray-950 flex-col items-center justify-center text-center px-8">
         <div className="text-6xl mb-4 animate-pulse">📱↻</div>
@@ -107,22 +130,40 @@ export default function GameClient() {
         </div>
       )}
 
-      {/* ヒントボタン */}
+      {/* ヒントボタン（押すと手がかりを表示・-10pt） */}
       {(phase === "exploring" || phase === "investigating") && (
         <button
-          onClick={() => { useHint(); }}
-          className="absolute top-4 right-4 bg-white/20 backdrop-blur text-white text-xs px-3 py-2 rounded-lg"
+          onClick={() => { useHint(); setShowHint(true); }}
+          className="absolute top-4 right-4 z-40 bg-white/20 backdrop-blur text-white text-xs px-3 py-2 rounded-lg pointer-events-auto"
         >
           💡 ヒント {hintUsed && "(使用済み -10pt)"}
         </button>
       )}
 
-      {/* 探索ガイド */}
-      {phase === "exploring" && (
+      {/* ヒント内容（anomaly.clue） */}
+      {showHint && (phase === "exploring" || phase === "investigating") && (
+        <div className="absolute top-14 right-4 z-40 max-w-[70%] bg-amber-100 text-amber-900 text-xs rounded-xl p-3 shadow-lg pointer-events-none">
+          <p className="font-bold mb-1">💡 ヒント</p>
+          <p>{scenario.anomaly.clue}</p>
+        </div>
+      )}
+
+      {/* 探索ガイド（まだ何も調べていないとき） */}
+      {phase === "exploring" && currentInspected.length === 0 && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-xs text-center pointer-events-none px-4">
           左スティックで移動 ・ 右スティックで見回す<br />
           （PC: WASDで移動・ドラッグで視点） 近づいてタップで調べる
         </div>
+      )}
+
+      {/* 判定ボタン（1つ以上調べたら表示） */}
+      {phase === "exploring" && currentInspected.length >= 1 && (
+        <button
+          onClick={handleOpenJudge}
+          className="absolute bottom-5 left-1/2 -translate-x-1/2 z-40 px-6 py-3 bg-blue-600 text-white font-bold rounded-full shadow-lg pointer-events-auto"
+        >
+          ⚖️ 判定する（{currentInspected.length}/{scenario.objects.length} 確認）
+        </button>
       )}
 
       {/* 移動ジョイスティックゾーン（左下） */}
@@ -162,8 +203,33 @@ export default function GameClient() {
               onClick={handleCloseInspect}
               className="w-full py-2 bg-gray-800 text-white rounded-xl text-sm font-bold"
             >
-              確認した → 判定する
+              確認した（閉じる）
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 片方だけで判定しようとしたときの軽い確認 */}
+      {showConfirm && (
+        <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-40 p-4">
+          <div className="bg-white rounded-2xl p-5 w-full max-w-sm text-center">
+            <p className="text-sm text-gray-700 mb-4">
+              まだ片方しか確認していません。<br />もう一方も確認しますか？
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="flex-1 py-2 bg-gray-800 text-white rounded-xl text-sm font-bold"
+              >
+                確認する
+              </button>
+              <button
+                onClick={openJudge}
+                className="flex-1 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold"
+              >
+                このまま判定
+              </button>
+            </div>
           </div>
         </div>
       )}

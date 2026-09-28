@@ -86,7 +86,7 @@ export default function IntakePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center px-6 py-8 text-white">
+    <div className="min-h-dvh bg-gray-950 flex flex-col items-center px-6 py-8 text-white">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
         <h1 className="text-2xl font-black mb-1 text-center">あなたについて</h1>
         <p className="text-gray-400 text-xs text-center mb-6">分析に使います（匿名）</p>

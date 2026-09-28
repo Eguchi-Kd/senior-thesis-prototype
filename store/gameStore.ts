@@ -28,7 +28,9 @@ export interface ScenarioLog {
   isFraud: boolean;
   difficulty: Difficulty; // 項目難易度（易/中/難）— 項目レベル分析・天井効果の確認に使う
   presentationOrder: number; // 提示順位（1始まり）— 順序効果の統制に使う
-  reactionTimeMs: number;
+  reactionTimeMs: number; // 主要RT：初回調査→判定
+  explorationTimeMs: number; // シナリオ開始→最初の調査（探索時間）
+  decisionLatencyMs: number; // 判定UI表示→決定（決定潜時）
   decision: Decision;
   confidence: number;
   hintUsed: boolean;
@@ -75,8 +77,10 @@ interface GameState {
   currentIndex: number;
 
   phase: GamePhase;
-  rtStartTime: number | null;
-  rtLocked: boolean; // A4: シナリオ内で計測を一度だけ開始する
+  scenarioStartTime: number | null; // シナリオ開始（探索開始）時刻
+  firstInspectTime: number | null;  // 最初の調査を開いた時刻（主要RTの起点）
+  judgeOpenTime: number | null;     // 判定UIを開いた時刻
+  rtLocked: boolean; // シナリオ内で firstInspectTime を一度だけ確定する
   hintUsed: boolean;
   currentInspected: string[]; // 現シナリオで調べたid
 
@@ -94,7 +98,8 @@ interface GameState {
   // actions
   setPhase: (phase: GamePhase) => void;
   startTimer: () => void;
-  stopTimer: () => number;
+  markScenarioStart: () => void;
+  markJudgeOpen: () => void;
   useHint: () => void;
   recordInspect: (id: string) => void;
   submitDecision: (decision: Decision, confidence: number, correct: boolean, isFraud: boolean) => void;
@@ -146,7 +151,9 @@ const initialState = () => ({
   scenarioOrder: buildSessionOrder(),
   currentIndex: 0,
   phase: "title" as GamePhase,
-  rtStartTime: null,
+  scenarioStartTime: null,
+  firstInspectTime: null,
+  judgeOpenTime: null,
   rtLocked: false,
   hintUsed: false,
   currentInspected: [] as string[],
@@ -166,18 +173,27 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   setPhase: (phase) => set({ phase }),
 
-  // A4: rtLocked が立っている間は再スタートしない（再タップでRTが歪むのを防ぐ）
+  // rtLocked が立っている間は再スタートしない（再タップでRTが歪むのを防ぐ）
   startTimer: () => {
     if (get().rtLocked) return;
-    set({ rtStartTime: performance.now(), rtLocked: true });
+    set({ firstInspectTime: performance.now(), rtLocked: true });
   },
 
-  stopTimer: () => {
-    const { rtStartTime } = get();
-    if (!rtStartTime) return 0;
-    const elapsed = Math.round(performance.now() - rtStartTime);
-    set({ rtStartTime: null });
-    return elapsed;
+  // 各シナリオ開始時に時刻と per-scenario 状態をリセット
+  markScenarioStart: () =>
+    set({
+      scenarioStartTime: performance.now(),
+      firstInspectTime: null,
+      judgeOpenTime: null,
+      rtLocked: false,
+      hintUsed: false,
+      currentInspected: [],
+    }),
+
+  // 判定UIを開いた時刻（初回のみ記録）
+  markJudgeOpen: () => {
+    if (get().judgeOpenTime != null) return;
+    set({ judgeOpenTime: performance.now() });
   },
 
   useHint: () => set({ hintUsed: true }),
@@ -190,15 +206,21 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   submitDecision: (decision, confidence, correct, isFraud) => {
-    const { scenarioOrder, currentIndex, hintUsed, logs, currentInspected, stopTimer } = get();
+    const { scenarioOrder, currentIndex, hintUsed, logs, currentInspected, scenarioStartTime, firstInspectTime, judgeOpenTime } = get();
     const scenarioId = scenarioOrder[currentIndex];
-    const reactionTimeMs = stopTimer();
+    const now = performance.now();
+    const reactionTimeMs = firstInspectTime != null ? Math.round(now - firstInspectTime) : 0;
+    const explorationTimeMs =
+      scenarioStartTime != null && firstInspectTime != null ? Math.round(firstInspectTime - scenarioStartTime) : 0;
+    const decisionLatencyMs = judgeOpenTime != null ? Math.round(now - judgeOpenTime) : 0;
     const log: ScenarioLog = {
       scenarioId,
       isFraud,
       difficulty: getScenarioById(scenarioId).difficulty,
       presentationOrder: currentIndex + 1,
       reactionTimeMs,
+      explorationTimeMs,
+      decisionLatencyMs,
       decision,
       confidence,
       hintUsed,
@@ -231,14 +253,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (currentIndex >= scenarioOrder.length - 1) {
       set({ phase: "transfer_test" });
     } else {
-      set({
-        currentIndex: currentIndex + 1,
-        hintUsed: false,
-        rtLocked: false,
-        rtStartTime: null,
-        currentInspected: [],
-        phase: "exploring",
-      });
+      // per-scenario のリセットは markScenarioStart（GameClient の currentIndex 効果）が担う
+      set({ currentIndex: currentIndex + 1, phase: "exploring" });
     }
   },
 

@@ -5,14 +5,14 @@ import type { TestQuestion } from "./transferTest";
 export const preTestQuestions: TestQuestion[] = [
   {
     id: "PRE_F1",
-    title: "宅配便の再配達",
+    title: "警察からの連絡",
     scenario:
-      "フリマアプリで買った品物の到着を待っています。「ご不在のため持ち帰りました。再配達のお申し込みはこちら」とSMSが来ました。",
+      "「警察」を名乗る相手から電話とSMSがあり、「あなたの口座が犯罪に使われている。資産を守るため、指定の『安全な口座』に一度お金を移してほしい」と言われました。",
     isFraud: true,
     difficulty: "medium",
-    details: { senderAddress: "sagawa@sagawa-redelivery.info", url: "http://sagawa-redelivery.info/re", date: "配送予定日の前日" },
+    details: { senderAddress: "非通知／登録外の番号", url: "指定口座への振込を要求" },
     explanation:
-      "荷物待ちは事実でも、送信元は公式（sagawa-exp.co.jp）ではなく sagawa-redelivery.info、URLも http です。文脈が本物でもドメインで詐欺と分かります。",
+      "警察や銀行が『安全な口座に移せ』とお金の移動を求めることはありません。公的機関を名乗って振込を要求するのは、ニセ警察（なりすまし）詐欺です。",
   },
   {
     id: "PRE_F2",
@@ -27,14 +27,14 @@ export const preTestQuestions: TestQuestion[] = [
   },
   {
     id: "PRE_F3",
-    title: "還付金のお知らせ",
+    title: "未払い料金の督促",
     scenario:
-      "「税金の還付金があります。受け取り手続きは本日中にこちらから」とSMSが届きました。申請した覚えはありません。",
+      "「未払いの料金があります。本日中にお支払いがない場合は法的措置に移行します。至急こちらから手続きを」とSMSが届きました。心当たりはありません。",
     isFraud: true,
     difficulty: "easy",
-    details: { senderAddress: "info@refund-go.xyz", url: "http://refund-go.xyz/apply" },
+    details: { senderAddress: "info@ryokin-shiharai.xyz", url: "http://ryokin-shiharai.xyz/pay" },
     explanation:
-      "申請した覚えのない還付通知で、ドメインも .xyz の非公式、http です。行政がSMSのリンクで手続きを求めることは通常ありません。",
+      "心当たりのない未払い請求で、法的措置をちらつかせて焦らせ、非公式ドメイン（.xyz・http）のリンクへ誘導しています。典型的な架空請求（未払い料金）詐欺です。",
   },
   {
     id: "PRE_S1",
@@ -42,7 +42,7 @@ export const preTestQuestions: TestQuestion[] = [
     scenario:
       "動画配信サービスを月額で契約しています。公式アプリから「今月分の決済が完了しました。明細はアプリでご確認ください」と通知が来ました。リンクや入力要求はありません。",
     isFraud: false,
-    difficulty: "medium",
+    difficulty: "easy",
     details: { senderAddress: "receipt@video-service.co.jp" },
     explanation:
       "契約している事実と一致し、正規ドメインからで、リンクや情報入力を求めていません。正常な決済通知です。",

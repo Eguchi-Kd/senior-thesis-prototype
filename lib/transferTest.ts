@@ -21,14 +21,14 @@ export interface TestQuestion {
 export const transferTestQuestions: TestQuestion[] = [
   {
     id: "POST_F1",
-    title: "宅配便の不在通知",
+    title: "家族を名乗るメッセージ",
     scenario:
-      "通販で注文した荷物の到着を待っています。「お届けにあがりましたがご不在でした。再配達はこちら」とSMSが届きました。",
+      "「携帯を壊して番号が変わった」とSMSが来て、続けて「急な支払いが必要だから、このあと送る口座に立て替えておいて」と家族を名乗って頼まれました。",
     isFraud: true,
     difficulty: "medium",
-    details: { senderAddress: "yamato@yamato-saihai.net", url: "http://yamato-saihai.net/redelivery", date: "配送予定日の前日" },
+    details: { senderAddress: "登録外の新しい番号", url: "指定口座への立替振込を要求" },
     explanation:
-      "荷物を待っているのは事実でも、送信元は公式（kuronekoyamato.co.jp）ではなく yamato-saihai.net、URLも http です。文脈が本物でもドメインで詐欺と見抜けます。",
+      "『番号が変わった』と新しい連絡先を信じ込ませ、本人確認をさせないままお金を立て替えさせるのは、なりすまし詐欺の典型です。必ず元の連絡先で本人確認を。",
   },
   {
     id: "POST_F2",
@@ -43,14 +43,14 @@ export const transferTestQuestions: TestQuestion[] = [
   },
   {
     id: "POST_F3",
-    title: "キャッシュバック当選",
+    title: "動画サイトの未払い通知",
     scenario:
-      "「アンケート回答のお礼に5,000円をキャッシュバック！受け取りは今すぐこちらから」とメールが届きました。回答した覚えはありません。",
+      "「ご利用中の動画サイトの未払いがあります。本日中に支払わないとアカウントを停止します。今すぐこちら」とSMSが届きました。そのサイトを使った覚えはありません。",
     isFraud: true,
     difficulty: "easy",
-    details: { senderAddress: "reward@cash-back.xyz", url: "http://cash-back.xyz/get" },
+    details: { senderAddress: "billing@video-mibarai.xyz", url: "http://video-mibarai.xyz/pay" },
     explanation:
-      "回答した覚えのない特典通知で、ドメインも .xyz の非公式、http です。身に覚えのなさとドメインの両方から詐欺と判断できます。",
+      "利用した覚えのないサービスの未払い請求で、停止をちらつかせて焦らせ、非公式ドメイン（.xyz・http）へ誘導しています。架空請求（未払い料金）詐欺です。",
   },
   {
     id: "POST_S1",
@@ -58,7 +58,7 @@ export const transferTestQuestions: TestQuestion[] = [
     scenario:
       "先週コンビニでカードを使いました。カード会社の公式アプリから「ご利用がありました。明細はアプリでご確認ください」と通知が来ました。リンクや入力要求はありません。",
     isFraud: false,
-    difficulty: "medium",
+    difficulty: "easy",
     details: { senderAddress: "no-reply@card-company.co.jp" },
     explanation:
       "実際の利用と一致し、正規ドメインからで、リンクや情報入力を求めていません。矛盾も要求もなく正常な利用通知です。",

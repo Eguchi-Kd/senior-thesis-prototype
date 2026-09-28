@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useGameStore } from "@/store/gameStore";
@@ -7,14 +8,31 @@ import { useGameStore } from "@/store/gameStore";
 export default function TitlePage() {
   const router = useRouter();
   const reset = useGameStore((s) => s.reset);
+  const setPhase = useGameStore((s) => s.setPhase);
+
+  // 開発時(next dev) または ?test=1 のときだけ「3Dルーム直行」ボタンを表示する。
+  // 本番ビルドでは自動的に非表示になり、実験フロー（同意→属性→事前テスト）に影響しない。
+  const [showDev, setShowDev] = useState(false);
+  useEffect(() => {
+    const isDev = process.env.NODE_ENV === "development";
+    const hasTest = new URLSearchParams(window.location.search).get("test") === "1";
+    setShowDev(isDev || hasTest);
+  }, []);
 
   const handleStart = () => {
     reset(); // 新しいセッションを初期化（sessionId・提示順・計測をリセット）
     router.push("/consent");
   };
 
+  // 同意・属性・事前テストを飛ばして即座に3Dルームへ（開発/確認用）
+  const handleDevStart = () => {
+    reset();
+    setPhase("exploring");
+    router.push("/game");
+  };
+
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center text-white px-6">
+    <div className="min-h-dvh bg-gray-950 flex flex-col items-center justify-center text-white px-6">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -41,6 +59,15 @@ export default function TitlePage() {
         >
           ゲームをはじめる →
         </motion.button>
+
+        {showDev && (
+          <button
+            onClick={handleDevStart}
+            className="w-full py-3 mt-3 border border-dashed border-yellow-500/70 text-yellow-300 text-sm font-bold rounded-2xl"
+          >
+            🔧 テスト：3Dルームへ直行（同意/属性/事前テストを飛ばす）
+          </button>
+        )}
 
         <p className="text-gray-600 text-xs mt-6">
           青森大学 情報科学研究室 — 卒業研究プロトタイプ v0.1

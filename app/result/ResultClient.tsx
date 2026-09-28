@@ -82,7 +82,7 @@ export default function ResultClient() {
       </div>
     );
     return (
-      <div className="min-h-screen bg-gray-950 flex flex-col items-center px-6 py-8 text-white">
+      <div className="min-h-dvh bg-gray-950 flex flex-col items-center px-6 py-8 text-white">
         <div className="w-full max-w-md">
           <h1 className="text-2xl font-black mb-1 text-center">アンケート</h1>
           <p className="text-gray-400 text-xs text-center mb-6">1（全くそう思わない）〜 5（とてもそう思う）</p>
@@ -124,7 +124,7 @@ export default function ResultClient() {
 
   // ─── スコア画面 ──────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center px-4 py-8">
+    <div className="min-h-dvh bg-gray-950 flex flex-col items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="text-center mb-6">
           <div className="text-5xl mb-3">🏆</div>

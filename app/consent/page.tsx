@@ -19,7 +19,7 @@ export default function ConsentPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center px-6 py-8 text-white">
+    <div className="min-h-dvh bg-gray-950 flex flex-col items-center justify-center px-6 py-8 text-white">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}

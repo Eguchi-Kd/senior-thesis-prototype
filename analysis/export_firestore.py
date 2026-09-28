@@ -98,6 +98,8 @@ def flatten_sessions(docs, include_test):
                 "difficulty": lg.get("difficulty", ""),
                 "presentationOrder": lg.get("presentationOrder", ""),
                 "reactionTimeMs": lg.get("reactionTimeMs", ""),
+                "explorationTimeMs": lg.get("explorationTimeMs", ""),
+                "decisionLatencyMs": lg.get("decisionLatencyMs", ""),
                 "decision": lg.get("decision", ""),
                 "confidence": lg.get("confidence", ""),
                 "hintUsed": lg.get("hintUsed", ""),
