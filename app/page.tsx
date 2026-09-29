@@ -5,10 +5,24 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useGameStore } from "@/store/gameStore";
 
+const PLAY_COUNT_KEY = "scamDetective.playCount";
+
+// この端末での過去のプレイ回数を返し、今回の分を加算する（再プレイを分析から除外するため）
+function countPlay(): number {
+  try {
+    const prior = Number(localStorage.getItem(PLAY_COUNT_KEY) ?? "0") || 0;
+    localStorage.setItem(PLAY_COUNT_KEY, String(prior + 1));
+    return prior;
+  } catch {
+    return -1; // 取得不可（プライベートモード等）
+  }
+}
+
 export default function TitlePage() {
   const router = useRouter();
   const reset = useGameStore((s) => s.reset);
   const setPhase = useGameStore((s) => s.setPhase);
+  const setPriorPlays = useGameStore((s) => s.setPriorPlays);
 
   // 開発時(next dev) または ?test=1 のときだけ「3Dルーム直行」ボタンを表示する。
   // 本番ビルドでは自動的に非表示になり、実験フロー（同意→属性→事前テスト）に影響しない。
@@ -21,6 +35,7 @@ export default function TitlePage() {
 
   const handleStart = () => {
     reset(); // 新しいセッションを初期化（sessionId・提示順・計測をリセット）
+    setPriorPlays(countPlay());
     router.push("/consent");
   };
 
@@ -48,7 +63,7 @@ export default function TitlePage() {
         <div className="bg-gray-800 rounded-2xl p-5 mb-8 text-left text-sm text-gray-300 space-y-2">
           <p>🏠 3D空間を探索して不審な点を探そう</p>
           <p>📱 スマホやPCの画面と周囲の情報を照らし合わせよう</p>
-          <p>⚡ 反応速度も計測されます — 直感を鍛えよう</p>
+          <p>🧐 あわてず、情報を見比べてから判断しよう</p>
           <p>🎯 詐欺を見破ろう！（正常な通知もあります）</p>
         </div>
 

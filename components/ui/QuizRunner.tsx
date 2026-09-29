@@ -3,9 +3,16 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import type { TestQuestion } from "@/lib/transferTest";
+import type { TestForm } from "@/lib/testForms";
+import type { Difficulty } from "@/scenarios/types";
+import { shuffle } from "@/lib/shuffle";
+import { LikertButtons } from "./LikertButtons";
 
 export interface QuizResult {
   questionId: string;
+  form: TestForm;
+  position: number;
+  difficulty: Difficulty;
   isFraud: boolean;
   answer: "fraud" | "safe";
   correct: boolean;
@@ -15,20 +22,23 @@ export interface QuizResult {
 
 const confidenceLabels = ["全くわからない", "あまり確信なし", "やや確信あり", "かなり確信あり", "完全に確信"];
 
-// 事前テスト・転移テスト共通の出題ランナー。1問ごとにRTと確信度を計測する。
+// 事前テスト・転移テスト共通の出題ランナー。出題順をシャッフルし、1問ごとにRTと確信度を計測する。
 export function QuizRunner({
   questions,
+  form,
   headerLabel,
   onSubmitOne,
   onComplete,
 }: {
   questions: TestQuestion[];
+  form: TestForm;
   headerLabel: string;
   onSubmitOne: (r: QuizResult) => void;
   onComplete: () => void;
 }) {
+  const [order] = useState(() => shuffle(questions));
   const [currentQ, setCurrentQ] = useState(0);
-  const [confidence, setConfidence] = useState(3);
+  const [confidence, setConfidence] = useState<number | null>(null);
   const [answer, setAnswer] = useState<"fraud" | "safe" | null>(null);
   const startRef = useRef<number>(0);
 
@@ -37,24 +47,25 @@ export function QuizRunner({
     startRef.current = performance.now();
   }, [currentQ]);
 
-  const question = questions[currentQ];
+  const question = order[currentQ];
 
   const handleSubmit = () => {
-    if (!answer) return;
-    const correct = (answer === "fraud") === question.isFraud;
-    const reactionTimeMs = Math.round(performance.now() - startRef.current);
+    if (!answer || confidence == null) return;
     onSubmitOne({
       questionId: question.id,
+      form,
+      position: currentQ + 1,
+      difficulty: question.difficulty,
       isFraud: question.isFraud,
       answer,
-      correct,
+      correct: (answer === "fraud") === question.isFraud,
       confidence,
-      reactionTimeMs,
+      reactionTimeMs: Math.round(performance.now() - startRef.current),
     });
-    if (currentQ < questions.length - 1) {
+    if (currentQ < order.length - 1) {
       setCurrentQ((q) => q + 1);
       setAnswer(null);
-      setConfidence(3);
+      setConfidence(null);
     } else {
       onComplete();
     }
@@ -66,10 +77,10 @@ export function QuizRunner({
         <div className="text-center mb-6">
           <p className="text-gray-400 text-sm mb-1">{headerLabel}</p>
           <h1 className="text-white text-xl font-black">
-            問 {currentQ + 1} / {questions.length}
+            問 {currentQ + 1} / {order.length}
           </h1>
           <div className="flex gap-1 mt-3 justify-center">
-            {questions.map((_, i) => (
+            {order.map((_, i) => (
               <div
                 key={i}
                 className={`h-1.5 w-10 rounded-full ${i <= currentQ ? "bg-blue-500" : "bg-gray-700"}`}
@@ -121,26 +132,18 @@ export function QuizRunner({
         </div>
 
         <div className="bg-gray-900 rounded-xl p-4 mb-5">
-          <p className="text-gray-400 text-xs mb-2 text-center">確信度：{confidenceLabels[confidence - 1]}</p>
-          <input
-            type="range"
-            min={1}
-            max={5}
-            value={confidence}
-            onChange={(e) => setConfidence(Number(e.target.value))}
-            className="w-full accent-blue-500"
-          />
-          <div className="flex justify-between text-xs text-gray-600 mt-1">
-            <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
-          </div>
+          <p className="text-gray-400 text-xs mb-2 text-center">
+            確信度：{confidence != null ? confidenceLabels[confidence - 1] : "選んでください"}
+          </p>
+          <LikertButtons value={confidence} onChange={setConfidence} minLabel="全くわからない" maxLabel="完全に確信" dark />
         </div>
 
         <button
-          disabled={!answer}
+          disabled={!answer || confidence == null}
           onClick={handleSubmit}
           className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {currentQ < questions.length - 1 ? "次の問題へ →" : "完了 →"}
+          {currentQ < order.length - 1 ? "次の問題へ →" : "完了 →"}
         </button>
       </div>
     </div>

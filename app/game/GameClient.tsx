@@ -14,11 +14,9 @@ import { saveSnapshot, registerDropoutSave } from "@/lib/logger";
 
 export default function GameClient() {
   const router = useRouter();
-  const { phase, setPhase, startTimer, markScenarioStart, markJudgeOpen, submitDecision, nextScenario, hintUsed, useHint, recordInspect, currentInspected, scenarioOrder, currentIndex } = useGameStore();
+  const { phase, setPhase, startTimer, markScenarioStart, markJudgeOpen, submitDecision, nextScenario, hintUsed, useHint, recordInspect, closeInspect, markPhase, currentInspected, scenarioOrder, currentIndex } = useGameStore();
   const [inspectedId, setInspectedId] = useState<string | null>(null);
   const [showJudge, setShowJudge] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [showHint, setShowHint] = useState(false);
   const [lastResult, setLastResult] = useState<{ correct: boolean } | null>(null);
 
   const scenarioId = scenarioOrder[currentIndex];
@@ -26,10 +24,10 @@ export default function GameClient() {
 
   // 離脱（タブを閉じる/バックグラウンド化）時のベストエフォート保存
   useEffect(() => registerDropoutSave(), []);
+  useEffect(() => markPhase("gameStart"), [markPhase]);
   // 各シナリオ開始で時刻・per-scenario状態をリセット
   useEffect(() => {
     markScenarioStart();
-    setShowHint(false);
   }, [currentIndex, markScenarioStart]);
 
   const handleInspect = (id: string) => {
@@ -42,24 +40,16 @@ export default function GameClient() {
 
   // 調査パネルを閉じたら探索に戻す（もう一方のオブジェクトも調べられる）
   const handleCloseInspect = () => {
+    closeInspect();
     setInspectedId(null);
     setPhase("exploring");
   };
 
+  // 関連オブジェクトの数を悟らせないため、確認ダイアログや件数表示は出さない
   const openJudge = () => {
-    setShowConfirm(false);
     markJudgeOpen(); // 判定UI表示時刻を記録
     setShowJudge(true);
     setPhase("judging");
-  };
-
-  // 判定ボタン：両方調べていなければ軽い確認を挟む（必須にはしない）
-  const handleOpenJudge = () => {
-    if (currentInspected.length < scenario.objects.length) {
-      setShowConfirm(true);
-    } else {
-      openJudge();
-    }
   };
 
   const handleSubmit = (confidence: number, decision: "report" | "ignore") => {
@@ -79,6 +69,7 @@ export default function GameClient() {
     const isLast = currentIndex >= scenarioOrder.length - 1;
     nextScenario();
     if (isLast) {
+      markPhase("gameEnd");
       router.push("/result");
     } else {
       setPhase("exploring");
@@ -130,24 +121,6 @@ export default function GameClient() {
         </div>
       )}
 
-      {/* ヒントボタン（押すと手がかりを表示・-10pt） */}
-      {(phase === "exploring" || phase === "investigating") && (
-        <button
-          onClick={() => { useHint(); setShowHint(true); }}
-          className="absolute top-4 right-4 z-40 bg-white/20 backdrop-blur text-white text-xs px-3 py-2 rounded-lg pointer-events-auto"
-        >
-          💡 ヒント {hintUsed && "(使用済み -10pt)"}
-        </button>
-      )}
-
-      {/* ヒント内容（anomaly.clue） */}
-      {showHint && (phase === "exploring" || phase === "investigating") && (
-        <div className="absolute top-14 right-4 z-40 max-w-[70%] bg-amber-100 text-amber-900 text-xs rounded-xl p-3 shadow-lg pointer-events-none">
-          <p className="font-bold mb-1">💡 ヒント</p>
-          <p>{scenario.anomaly.clue}</p>
-        </div>
-      )}
-
       {/* 探索ガイド（まだ何も調べていないとき） */}
       {phase === "exploring" && currentInspected.length === 0 && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-xs text-center pointer-events-none px-4">
@@ -159,10 +132,10 @@ export default function GameClient() {
       {/* 判定ボタン（1つ以上調べたら表示） */}
       {phase === "exploring" && currentInspected.length >= 1 && (
         <button
-          onClick={handleOpenJudge}
+          onClick={openJudge}
           className="absolute bottom-5 left-1/2 -translate-x-1/2 z-40 px-6 py-3 bg-blue-600 text-white font-bold rounded-full shadow-lg pointer-events-auto"
         >
-          ⚖️ 判定する（{currentInspected.length}/{scenario.objects.length} 確認）
+          ⚖️ 判定する
         </button>
       )}
 
@@ -181,22 +154,31 @@ export default function GameClient() {
       {/* 調査パネル */}
       {inspectedObj && phase === "investigating" && (
         <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-40 p-4">
-          <div className="bg-white rounded-2xl p-5 w-full max-w-sm">
-            <h3 className="font-bold text-lg mb-3">{inspectedObj.label}</h3>
+          <div className="bg-white rounded-2xl p-5 w-full max-w-sm max-h-[90dvh] overflow-y-auto">
+            <h3 className="font-bold text-lg mb-3">
+              {inspectedObj.label}
+              {typeof inspectedObj.content !== "string" && (
+                <span className="text-sm font-normal text-gray-500 ml-2">通知 {inspectedObj.content.length}件</span>
+              )}
+            </h3>
             {typeof inspectedObj.content === "string" ? (
               <p className="text-gray-700 text-sm mb-4 whitespace-pre-line">{inspectedObj.content}</p>
             ) : (
-              <div className="bg-gray-100 rounded-xl p-3 mb-4 text-sm space-y-1">
-                {/* 手がかりを別行で明示：送信元名・実アドレス・日時・本文・リンク先URL */}
-                <p className="text-xs text-gray-500">送信元：<span className="text-gray-700">{inspectedObj.content.sender}</span></p>
-                {inspectedObj.content.senderAddress && (
-                  <p className="text-xs text-gray-500 font-mono break-all">アドレス：<span className="text-gray-800">{inspectedObj.content.senderAddress}</span></p>
-                )}
-                <p className="text-xs text-gray-500">日時：<span className="text-gray-700">{inspectedObj.content.timestamp}</span></p>
-                <p className="text-gray-800 pt-1 border-t border-gray-200 mt-1">{inspectedObj.content.body}</p>
-                {inspectedObj.content.url && (
-                  <p className="text-xs text-gray-500 font-mono break-all pt-1">リンク先：<span className="text-blue-700">{inspectedObj.content.url}</span></p>
-                )}
+              <div className="mb-4 space-y-2">
+                {inspectedObj.content.map((msg, i) => (
+                  <div key={i} className="bg-gray-100 rounded-xl p-3 text-sm space-y-1">
+                    {/* 手がかりを別行で明示：送信元名・実アドレス・日時・本文・リンク先URL */}
+                    <p className="text-xs text-gray-500">送信元：<span className="text-gray-700">{msg.sender}</span></p>
+                    {msg.senderAddress && (
+                      <p className="text-xs text-gray-500 font-mono break-all">アドレス：<span className="text-gray-800">{msg.senderAddress}</span></p>
+                    )}
+                    <p className="text-xs text-gray-500">日時：<span className="text-gray-700">{msg.timestamp}</span></p>
+                    <p className="text-gray-800 pt-1 border-t border-gray-200 mt-1">{msg.body}</p>
+                    {msg.url && (
+                      <p className="text-xs text-gray-500 font-mono break-all pt-1">リンク先：<span className="text-blue-700">{msg.url}</span></p>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
             <button
@@ -209,34 +191,14 @@ export default function GameClient() {
         </div>
       )}
 
-      {/* 片方だけで判定しようとしたときの軽い確認 */}
-      {showConfirm && (
-        <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-40 p-4">
-          <div className="bg-white rounded-2xl p-5 w-full max-w-sm text-center">
-            <p className="text-sm text-gray-700 mb-4">
-              まだ片方しか確認していません。<br />もう一方も確認しますか？
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowConfirm(false)}
-                className="flex-1 py-2 bg-gray-800 text-white rounded-xl text-sm font-bold"
-              >
-                確認する
-              </button>
-              <button
-                onClick={openJudge}
-                className="flex-1 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold"
-              >
-                このまま判定
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 判定UI */}
       {showJudge && phase === "judging" && (
-        <ConfidenceSlider onSubmit={handleSubmit} />
+        <ConfidenceSlider
+          onSubmit={handleSubmit}
+          hint={scenario.hint}
+          hintUsed={hintUsed}
+          onUseHint={useHint}
+        />
       )}
 
       {/* フィードバック */}

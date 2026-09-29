@@ -4,43 +4,62 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
-import { saveSession, saveSnapshot } from "@/lib/logger";
-import { transferTestQuestions } from "@/lib/transferTest";
+import { saveSession, saveSnapshot, registerDropoutSave, toParticipantCode } from "@/lib/logger";
+import { testForms } from "@/lib/testForms";
 import { QuizRunner } from "@/components/ui/QuizRunner";
 import { LearningCard } from "@/components/ui/LearningCard";
+import { LikertButtons } from "@/components/ui/LikertButtons";
 import { getScenarioById } from "@/lib/scenarios";
 
 type Screen = "transfer" | "survey" | "score";
 
+// System Usability Scale（日本語版・10項目）。奇数=肯定、偶数=否定の文。
+// 得点 = (Σ奇数(x-1) + Σ偶数(5-x)) × 2.5（0〜100）。分析側で算出する。
 const SUS_ITEMS = [
-  "操作は簡単だった",
-  "画面や表示は分かりやすかった",
-  "迷わずスムーズに進められた",
-  "またこういうゲームで学びたい",
-  "全体として使いやすかった",
+  "このゲームをまた使いたいと思う",
+  "このゲームは必要以上に複雑だと感じた",
+  "このゲームは簡単に使いこなせると思った",
+  "このゲームを使うには、詳しい人の助けが必要だと感じた",
+  "このゲームのいろいろな機能はうまくまとまっていると感じた",
+  "このゲームにはちぐはぐなところが多いと感じた",
+  "たいていの人は、このゲームの使い方をすぐに覚えられると思う",
+  "このゲームはとても扱いにくいと感じた",
+  "このゲームを自信を持って使えた",
+  "このゲームを使い始める前に、多くのことを覚える必要があった",
 ];
 
 export default function ResultClient() {
   const router = useRouter();
-  const { logs, transferTestLogs, submitTransferTest, setSurvey, reset } = useGameStore();
+  const { logs, transferTestLogs, submitTransferTest, setSurvey, reset, markPhase, sessionId } = useGameStore();
+  const postForm = useGameStore((s) => s.testForms.post);
 
   const [screen, setScreen] = useState<Screen>("transfer");
 
-  // アンケート状態
-  const [selfEfficacyPost, setSelfEfficacyPost] = useState(3);
-  const [learning, setLearning] = useState(3);
-  const [immersion, setImmersion] = useState(3);
-  const [difficulty, setDifficulty] = useState(3);
-  const [sus, setSus] = useState<number[]>([3, 3, 3, 3, 3]);
+  // アンケート状態（初期値なし＝選ぶまで未回答）
+  const [selfEfficacyPost, setSelfEfficacyPost] = useState<number | null>(null);
+  const [learning, setLearning] = useState<number | null>(null);
+  const [immersion, setImmersion] = useState<number | null>(null);
+  const [difficulty, setDifficulty] = useState<number | null>(null);
+  const [sus, setSus] = useState<(number | null)[]>(() => SUS_ITEMS.map(() => null));
   const [freeText, setFreeText] = useState("");
+
+  const surveyReady =
+    selfEfficacyPost != null && learning != null && immersion != null && difficulty != null && sus.every((v) => v != null);
 
   // 直接アクセス（ログ無し）はタイトルへ
   useEffect(() => {
     if (logs.length === 0) router.replace("/");
   }, [logs, router]);
 
+  useEffect(() => registerDropoutSave(), []);
+
   const handleSurveySubmit = () => {
-    setSurvey({ learning, immersion, difficulty, sus, freeText }, selfEfficacyPost);
+    if (!surveyReady) return;
+    setSurvey(
+      { learning: learning!, immersion: immersion!, difficulty: difficulty!, sus: sus as number[], freeText },
+      selfEfficacyPost!,
+    );
+    markPhase("surveyEnd");
     void saveSession(); // 全工程完了 → 最終保存
     setScreen("score");
   };
@@ -62,10 +81,12 @@ export default function ResultClient() {
   if (screen === "transfer") {
     return (
       <QuizRunner
-        questions={transferTestQuestions}
-        headerLabel="転移テスト（プレイ後）"
+        questions={testForms[postForm]}
+        form={postForm}
+        headerLabel="事後テスト（プレイ後）"
         onSubmitOne={(r) => submitTransferTest(r)}
         onComplete={() => {
+          markPhase("posttestEnd");
           void saveSnapshot();
           setScreen("survey");
         }}
@@ -75,10 +96,10 @@ export default function ResultClient() {
 
   // ─── アンケート ──────────────────────────────
   if (screen === "survey") {
-    const Slider = ({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) => (
+    const Slider = ({ label, value, onChange }: { label: string; value: number | null; onChange: (v: number) => void }) => (
       <div className="mb-4">
-        <p className="text-sm text-gray-300 mb-1">{label}：<span className="text-white font-bold">{value}</span></p>
-        <input type="range" min={1} max={5} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full accent-blue-500" />
+        <p className="text-sm text-gray-300 mb-1">{label}</p>
+        <LikertButtons value={value} onChange={onChange} dark />
       </div>
     );
     return (
@@ -114,8 +135,12 @@ export default function ResultClient() {
             />
           </div>
 
-          <button onClick={handleSurveySubmit} className="w-full py-4 bg-blue-600 text-white text-lg font-black rounded-2xl">
-            回答して結果を見る →
+          <button
+            disabled={!surveyReady}
+            onClick={handleSurveySubmit}
+            className="w-full py-4 bg-blue-600 text-white text-lg font-black rounded-2xl disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {surveyReady ? "回答して結果を見る →" : "すべての項目に回答してください"}
           </button>
         </div>
       </div>
@@ -185,6 +210,12 @@ export default function ResultClient() {
             </div>
           </motion.div>
         )}
+
+        <div className="bg-gray-900 rounded-2xl p-4 mb-5 text-center">
+          <p className="text-gray-400 text-xs mb-1">参加者コード</p>
+          <p className="text-white text-2xl font-mono font-black tracking-widest">{toParticipantCode(sessionId)}</p>
+          <p className="text-gray-500 text-xs mt-2">データの削除を希望する場合は、このコードを研究者にお伝えください。</p>
+        </div>
 
         <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }} onClick={handleReplay} className="w-full py-4 bg-blue-600 text-white text-lg font-black rounded-2xl">
           もう一度プレイ →

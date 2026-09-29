@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { saveSnapshot } from "@/lib/logger";
+import { LikertButtons } from "@/components/ui/LikertButtons";
 
 // 単一選択チップ
 function ChipGroup({
@@ -43,21 +44,11 @@ function ChipGroup({
   );
 }
 
-function Slider({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+function Scale({ label, value, onChange }: { label: string; value: number | null; onChange: (v: number) => void }) {
   return (
     <div className="mb-5">
       <p className="text-sm text-gray-300 mb-2 font-bold">{label}</p>
-      <input
-        type="range"
-        min={1}
-        max={5}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-blue-500"
-      />
-      <div className="flex justify-between text-xs text-gray-500 mt-1">
-        <span>1 低い</span><span>3</span><span>5 高い</span>
-      </div>
+      <LikertButtons value={value} onChange={onChange} minLabel="1 低い" maxLabel="5 高い" dark />
     </div>
   );
 }
@@ -65,15 +56,16 @@ function Slider({ label, value, onChange }: { label: string; value: number; onCh
 export default function IntakePage() {
   const router = useRouter();
   const setDemographics = useGameStore((s) => s.setDemographics);
+  const markPhase = useGameStore((s) => s.markPhase);
 
   const [ageGroup, setAgeGroup] = useState("");
   const [occupation, setOccupation] = useState("");
   const [gender, setGender] = useState("");
   const [scamExperience, setScamExperience] = useState("");
-  const [itConfidence, setItConfidence] = useState(3);
-  const [selfEfficacyPre, setSelfEfficacyPre] = useState(3);
+  const [itConfidence, setItConfidence] = useState<number | null>(null);
+  const [selfEfficacyPre, setSelfEfficacyPre] = useState<number | null>(null);
 
-  const ready = ageGroup && occupation && scamExperience;
+  const ready = ageGroup && occupation && scamExperience && itConfidence != null && selfEfficacyPre != null;
 
   const handleNext = () => {
     if (!ready) return;
@@ -81,6 +73,7 @@ export default function IntakePage() {
       { ageGroup, occupation, gender, scamExperience, itConfidence: String(itConfidence) },
       selfEfficacyPre,
     );
+    markPhase("intakeEnd");
     void saveSnapshot();
     router.push("/pretest");
   };
@@ -95,8 +88,8 @@ export default function IntakePage() {
         <ChipGroup label="職業・学年" options={["中学生", "高校生", "大学・専門学生", "社会人", "その他"]} value={occupation} onChange={setOccupation} />
         <ChipGroup label="性別" options={["男性", "女性", "回答しない"]} value={gender} onChange={setGender} optional />
         <ChipGroup label="詐欺に遭遇したことは？" options={["ない", "不審な連絡を受けた", "だまされかけた", "被害にあった"]} value={scamExperience} onChange={setScamExperience} />
-        <Slider label="ITやセキュリティへの自信" value={itConfidence} onChange={setItConfidence} />
-        <Slider label="詐欺を見抜ける自信（今の気持ち）" value={selfEfficacyPre} onChange={setSelfEfficacyPre} />
+        <Scale label="ITやセキュリティへの自信" value={itConfidence} onChange={setItConfidence} />
+        <Scale label="詐欺を見抜ける自信（今の気持ち）" value={selfEfficacyPre} onChange={setSelfEfficacyPre} />
 
         <button
           disabled={!ready}

@@ -2,14 +2,23 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 import { useGameStore } from "@/store/gameStore";
 
+// 終了画面に表示する参加者コード（データ削除の申し出用）。sessionId の乱数部から作る
+export function toParticipantCode(sessionId: string): string {
+  return (sessionId.split("_").pop() ?? sessionId).slice(0, 6).toUpperCase();
+}
+
 // 現在のストア状態から Firestore 保存用ペイロードを組み立てる
 function buildPayload() {
   const s = useGameStore.getState();
   return {
     sessionId: s.sessionId,
+    participantCode: toParticipantCode(s.sessionId),
     startedAt: s.startedAt,
     deviceInfo: s.deviceInfo,
     testRun: s.testRun,
+    priorPlays: s.priorPlays,
+    testForms: s.testForms,
+    phaseTimes: s.phaseTimes,
     scenarioOrder: s.scenarioOrder,
     consent: s.consent,
     demographics: s.demographics,

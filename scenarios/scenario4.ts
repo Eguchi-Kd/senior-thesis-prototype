@@ -9,25 +9,49 @@ export const scenario4: Scenario = {
     type: "subdomain_spoof",
     clue: "公式URLで始まるが実際のドメインは別物、かつ本来不要なログインを要求",
   },
+  hint: "ポスターに書かれた案内と、QRコードを読み取った結果を見比べてみよう。URLの末尾にも注目。",
+  relevantIds: ["poster", "smartphone"],
   difficulty: "hard",
   objects: [
     {
+      id: "calendar",
+      label: "カレンダー",
+      content: "11月の予定\n・11/3（火・祝）学祭に行く（友人と10時に正門）\n・11/5（木）レポート締切\n・11/8（日）バイト",
+    },
+    {
+      id: "receipt",
+      label: "メモ",
+      content: "学祭メモ\n・模擬店の割引券を持っていく\n・現金を多めに\n・モバイルバッテリー",
+    },
+    {
       id: "poster",
       label: "ポスター",
-      position: [-3, 2, -4],
       content: "【学祭2026】\n日時: 11月3日\n公式サイト: aomori-fes.ac.jp\n（詳細はQRコードから。ログイン不要で閲覧できます）",
     },
     {
       id: "smartphone",
       label: "スマートフォン",
-      position: [-1.5, 1, -2],
-      content: {
-        type: "system",
-        sender: "QRスキャン結果",
-        body: "読み取ったページを開きますか？ ログインが求められています。",
-        url: "http://aomori-fes.ac.jp.login-check.info/signin",
-        timestamp: "現在",
-      },
+      content: [
+        {
+          type: "app",
+          sender: "友人（LINE）",
+          body: "明日10時に正門ね！",
+          timestamp: "11/2 21:40",
+        },
+        {
+          type: "app",
+          sender: "天気アプリ",
+          body: "11/3 は晴れ。最高気温 14℃ の予報です。",
+          timestamp: "11/2 20:00",
+        },
+        {
+          type: "system",
+          sender: "QRスキャン結果",
+          body: "読み取ったページを開きますか？ ログインが求められています。",
+          url: "http://aomori-fes.ac.jp.login-check.info/signin",
+          timestamp: "現在",
+        },
+      ],
     },
   ],
   isFraud: true,

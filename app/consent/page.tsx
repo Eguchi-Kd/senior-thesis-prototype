@@ -9,11 +9,13 @@ import { saveSnapshot } from "@/lib/logger";
 export default function ConsentPage() {
   const router = useRouter();
   const setConsent = useGameStore((s) => s.setConsent);
+  const markPhase = useGameStore((s) => s.markPhase);
   const [agreed, setAgreed] = useState(false);
 
   const handleNext = () => {
     if (!agreed) return;
     setConsent(true);
+    markPhase("consent");
     void saveSnapshot();
     router.push("/intake");
   };
@@ -30,7 +32,10 @@ export default function ConsentPage() {
         <div className="bg-gray-800 rounded-2xl p-5 mb-6 text-sm text-gray-300 space-y-3 leading-relaxed">
           <p>本ゲームは卒業研究「体験型ゲームを用いたデジタル詐欺認知学習の効果検証」のためのものです。</p>
           <p>プレイ中の回答・反応時間・アンケート結果などを、<strong className="text-white">匿名で</strong>研究目的にのみ利用します。氏名・連絡先など個人を特定する情報は取得しません。</p>
-          <p>回答はいつでも中断でき、協力しないことによる不利益はありません。収集データは研究終了後に適切に管理・破棄されます。</p>
+          <p>回答はいつでも中断でき、協力しないことによる不利益はありません。収集データは研究終了後に適切に管理・破棄されます。</p>        </div>
+
+        <div className="bg-amber-500/15 border border-amber-500/40 rounded-2xl p-4 mb-6 text-sm text-amber-200 leading-relaxed">
+          🙏 正確な研究のため、<strong className="text-amber-100">一人で、誰とも相談せずに</strong>プレイしてください。
         </div>
 
         <label className="flex items-center gap-3 mb-6 cursor-pointer">

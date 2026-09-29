@@ -1,7 +1,8 @@
 import type { TestQuestion } from "./transferTest";
 
-// 事前（ベースライン）テスト：事後（転移）テストと並行フォーム。
-// 難易度（易/中/難）と詐欺:安全＝3:2の構成を事後と揃え、内容だけ変えて「答えの丸暗記」を防ぐ。
+// フォームA（lib/testForms.ts でフォームBと事前/事後にランダム割付＝カウンターバランス）。
+// 難易度（易2/中2/難2）と詐欺:安全＝3:3の構成をフォームBと揃え、内容だけ変えて「答えの丸暗記」を防ぐ。
+// ※ id の PRE_ 接頭辞は項目の識別子であり、事前/事後どちらで出たかはログの phase を見る。
 export const preTestQuestions: TestQuestion[] = [
   {
     id: "PRE_F1",
@@ -57,5 +58,16 @@ export const preTestQuestions: TestQuestion[] = [
     details: { senderAddress: "no-reply@mail-service.co.jp" },
     explanation:
       "自分のログイン操作と一致して届いた二段階認証コードで、正規ドメインから、コードを外部に入力させるリンクもありません。正常な認証コードです。",
+  },
+  {
+    id: "PRE_S3",
+    title: "注文した商品の発送通知",
+    scenario:
+      "昨日、いつも使っている通販サイトで本を注文しました。今日「ご注文の商品を発送しました。配送状況は注文履歴からご確認いただけます」とメールが届き、リンクが付いています。",
+    isFraud: false,
+    difficulty: "medium",
+    details: { senderAddress: "ship-info@netshop.co.jp", url: "https://www.netshop.co.jp/orders" },
+    explanation:
+      "自分の注文と一致し、送信元もリンク先も同じ正規ドメイン（netshop.co.jp・https）で、ログインや支払い情報の入力も求めていません。リンクがある＝詐欺ではなく、正常な発送通知です。",
   },
 ];

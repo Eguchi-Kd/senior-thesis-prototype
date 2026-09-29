@@ -11,19 +11,21 @@ const ROOM_W = 3.6; // 幅(x)
 const ROOM_H = 2.5; // 高さ(y)
 const ROOM_D = 5.4; // 奥行(z)
 
-// タップ対象を家具（デスク上／奥壁）の定位置に固定し、全シナリオでレイアウトを安定させる。
-// いずれもプレイヤー(+z)向きで回転不要。scenario 側の position より優先する。
+// タップ対象を家具・壁の定位置に固定し、全シナリオでレイアウトを安定させる（部屋全体に分散）。
+// scenario 側の position より優先する。
 const OBJECT_ANCHORS: Record<string, [number, number, number]> = {
   smartphone: [-0.45, 0.79, -2.15], // 机の上に平置き
-  receipt: [0.5, 0.88, -2.2],
+  calendar: [0.7, 1.6, -2.66], // 机の奥の壁
+  receipt: [-1.745, 1.72, -0.3], // 左壁のコルクボードにピン留め
+  poster: [1.765, 1.45, 0.5], // ベッド脇の右壁
   id_card: [0.05, 0.84, -2.2],
-  calendar: [0.7, 1.6, -2.66],
-  poster: [-0.55, 1.55, -2.66],
 };
 
-// 見た目メッシュの回転（ラベル等は直立のまま）。スマホは画面を上にして机に寝かせる。
+// 見た目メッシュの回転（ラベル等は直立のまま）。スマホは机に寝かせ、壁掛けは室内側へ向ける。
 const OBJECT_ROTATIONS: Record<string, [number, number, number]> = {
   smartphone: [-Math.PI / 2, 0, 0],
+  receipt: [0, Math.PI / 2, 0], // 左壁 → +x 向き
+  poster: [0, -Math.PI / 2, 0], // 右壁 → -x 向き
 };
 
 // ─── オブジェクト種別ごとの外形定義 ─────────────────────
@@ -136,7 +138,7 @@ function InteractableObject({
         </>
       )}
 
-      {/* 領収書: 罫線 */}
+      {/* メモ: 罫線 + 画鋲 */}
       {obj.id === "receipt" && (
         <>
           {[-0.06, -0.01, 0.04, 0.07].map((dy, i) => (
@@ -145,6 +147,10 @@ function InteractableObject({
               <meshStandardMaterial color="#ddddcc" />
             </mesh>
           ))}
+          <mesh position={[0, shape.h / 2 - 0.02, 0.008]}>
+            <sphereGeometry args={[0.012, 8, 8]} />
+            <meshStandardMaterial color="#d23a2a" roughness={0.4} />
+          </mesh>
         </>
       )}
 
@@ -378,9 +384,10 @@ export function Room({ onInspect }: { onInspect: (id: string) => void }) {
       <mesh position={[1.3, 1.55, -HZ + 0.03]}><boxGeometry args={[0.4, 0.5, 0.02]} /><meshStandardMaterial color="#6b4a34" /></mesh>
       <mesh position={[1.3, 1.55, -HZ + 0.04]}><boxGeometry args={[0.34, 0.44, 0.01]} /><meshStandardMaterial color="#cfa06a" emissive="#8a6a3a" emissiveIntensity={0.15} /></mesh>
       <mesh position={[0, 2.1, -HZ + 0.03]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.14, 0.14, 0.03, 20]} /><meshStandardMaterial color="#efe6d8" /></mesh>
-      <group position={[-HX + 0.03, 1.5, -0.6]} rotation={[0, Math.PI / 2, 0]}>
-        <mesh><boxGeometry args={[0.7, 0.5, 0.02]} /><meshStandardMaterial color="#b98a55" roughness={1} /></mesh>
-        {([[-0.2, 0.1, "#f2d24b"], [0.05, -0.05, "#7fc7f0"], [0.22, 0.12, "#f29fb0"]] as [number, number, string][]).map(([x, y, c], i) => (
+      {/* コルクボード（本棚の上・メモを貼る場所）。ローカル +x は world -z 方向 */}
+      <group position={[-HX + 0.03, 1.75, -0.6]} rotation={[0, Math.PI / 2, 0]}>
+        <mesh><boxGeometry args={[1.0, 0.6, 0.02]} /><meshStandardMaterial color="#b98a55" roughness={1} /></mesh>
+        {([[0.0, 0.12, "#f2d24b"], [0.18, -0.1, "#7fc7f0"], [0.36, 0.1, "#f29fb0"]] as [number, number, string][]).map(([x, y, c], i) => (
           <mesh key={i} position={[x, y, 0.02]}><boxGeometry args={[0.12, 0.12, 0.005]} /><meshStandardMaterial color={c} /></mesh>
         ))}
       </group>
@@ -389,7 +396,7 @@ export function Room({ onInspect }: { onInspect: (id: string) => void }) {
       {scenario.objects.map((obj) => (
         <InteractableObject
           key={obj.id}
-          obj={{ ...obj, position: OBJECT_ANCHORS[obj.id] ?? obj.position }}
+          obj={{ ...obj, position: OBJECT_ANCHORS[obj.id] ?? obj.position ?? [0, 1, 0] }}
           onInspect={onInspect}
           rotation={OBJECT_ROTATIONS[obj.id]}
         />

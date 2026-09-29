@@ -1,5 +1,12 @@
 import { initializeApp, getApps } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import {
+  getFirestore,
+  initializeFirestore,
+  memoryLocalCache,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -11,4 +18,20 @@ const firebaseConfig = {
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-export const db = getFirestore(app);
+
+// 会場Wi-Fiが不安定でも書き込みを端末（IndexedDB）に保持し、復帰後に自動同期する。
+// ビルド時（サーバー）はIndexedDBが無いのでメモリキャッシュ。再初期化（HMR等）時は既存インスタンスを使う。
+function createDb(): Firestore {
+  try {
+    return initializeFirestore(app, {
+      localCache:
+        typeof window !== "undefined"
+          ? persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+          : memoryLocalCache(),
+    });
+  } catch {
+    return getFirestore(app);
+  }
+}
+
+export const db = createDb();

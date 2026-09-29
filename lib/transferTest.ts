@@ -16,8 +16,9 @@ export interface TestQuestion {
   explanation: string;
 }
 
-// 事後（転移）テスト：未学習の文脈での応用力。詐欺3＋安全2、難易度を分散。
-// 「身に覚え」だけでは解けないよう、身に覚えのある詐欺／一見不審な正常を混在させる。
+// フォームB（lib/testForms.ts でフォームAと事前/事後にランダム割付＝カウンターバランス）。
+// 詐欺3＋安全3、難易度は易2/中2/難2。「身に覚え」だけでは解けないよう、身に覚えのある詐欺／一見不審な正常を混在させる。
+// ※ id の POST_ 接頭辞は項目の識別子であり、事前/事後どちらで出たかはログの phase を見る。
 export const transferTestQuestions: TestQuestion[] = [
   {
     id: "POST_F1",
@@ -73,5 +74,16 @@ export const transferTestQuestions: TestQuestion[] = [
     details: { senderAddress: "no-reply@sns-official.com", url: "https://help.sns-official.com/security" },
     explanation:
       "自分で変更した事実と一致し、送信元は正規ドメイン、リンクも公式ヘルプで情報入力を求めていません。セキュリティ通知＝詐欺ではありません。",
+  },
+  {
+    id: "POST_S3",
+    title: "携帯料金の確定のお知らせ",
+    scenario:
+      "契約している携帯会社から「今月のご利用料金が確定しました。明細は会員ページでご確認いただけます」とメールが届き、リンクが付いています。金額はいつもと同じくらいです。",
+    isFraud: false,
+    difficulty: "medium",
+    details: { senderAddress: "bill-info@mobile-carrier.co.jp", url: "https://my.mobile-carrier.co.jp/bill" },
+    explanation:
+      "契約している事実と一致し、送信元もリンク先も同じ正規ドメイン（mobile-carrier.co.jp・https）で、支払いを急かしたり情報入力を求めたりしていません。リンクがある＝詐欺ではなく、正常な料金確定の通知です。",
   },
 ];

@@ -42,6 +42,18 @@ def g(d, key, default=""):
     return default if v is None else v
 
 
+PHASES = ["consent", "intakeEnd", "pretestStart", "pretestEnd", "gameStart", "gameEnd", "posttestEnd", "surveyEnd"]
+
+
+def sus_score(sus):
+    """SUS 10項目の得点（0〜100）。旧形式（5項目）や欠損は空文字。"""
+    if len(sus) != 10 or any(not isinstance(x, (int, float)) for x in sus):
+        return ""
+    odd = sum(sus[i] - 1 for i in range(0, 10, 2))
+    even = sum(5 - sus[i] for i in range(1, 10, 2))
+    return (odd + even) * 2.5
+
+
 def flatten_sessions(docs, include_test):
     sessions, trials, tests = [], [], []
     for doc in docs:
@@ -57,14 +69,20 @@ def flatten_sessions(docs, include_test):
         logs = d.get("logs") or []
         pre = d.get("preTest") or []
         post = d.get("transferTest") or []
+        forms = d.get("testForms") or {}
+        times = d.get("phaseTimes") or {}
 
         srow = {
             "sessionId": d.get("sessionId", doc.id),
+            "participantCode": d.get("participantCode", ""),
             "startedAt": d.get("startedAt", ""),
             "completed": d.get("completed", False),
             "phase": d.get("phase", ""),
             "dropoutPhase": d.get("dropoutPhase", ""),
             "testRun": test_run,
+            "priorPlays": d.get("priorPlays", ""),
+            "preForm": g(forms, "pre"),
+            "postForm": g(forms, "post"),
             "deviceInfo_ua": g(dev, "ua"),
             "deviceInfo_screen": g(dev, "screen"),
             "deviceInfo_language": g(dev, "language"),
@@ -84,8 +102,13 @@ def flatten_sessions(docs, include_test):
             "n_preTest": len(pre),
             "n_transfer": len(post),
         }
-        for i in range(5):
+        for i in range(10):
             srow[f"sus{i+1}"] = sus[i] if i < len(sus) else ""
+        srow["susScore"] = sus_score(sus)
+        for p in PHASES:
+            srow[f"t_{p}"] = times.get(p, "")
+        start, end = times.get("consent"), times.get("surveyEnd")
+        srow["totalDurationSec"] = round((end - start) / 1000) if start and end else ""
         sessions.append(srow)
 
         sid = srow["sessionId"]
@@ -103,9 +126,20 @@ def flatten_sessions(docs, include_test):
                 "decision": lg.get("decision", ""),
                 "confidence": lg.get("confidence", ""),
                 "hintUsed": lg.get("hintUsed", ""),
+                "hintAtMs": g(lg, "hintAtMs"),
+                "decisionBeforeHint": g(lg, "decisionBeforeHint"),
                 "correct": lg.get("correct", ""),
                 "signalType": lg.get("signalType", ""),
-                "viewedBothModalities": lg.get("viewedBothModalities", ""),
+                "viewedBothModalities": lg.get("viewedBothModalities", ""),  # 旧形式のデータ用
+                "viewedAllRelevant": lg.get("viewedAllRelevant", ""),
+                "distractorsInspected": lg.get("distractorsInspected", ""),
+                "inspectedIds": "|".join(lg.get("inspectedIds", []) or []),
+                # 調査イベント：id@開始ms+滞在ms を | 区切り（例 calendar@3200+4100|smartphone@9000+6500）
+                "inspectEvents": "|".join(
+                    f"{e.get('id','')}@{e.get('openMs','')}+{e.get('dwellMs','')}"
+                    for e in (lg.get("inspectEvents") or [])
+                ),
+                "n_inspects": len(lg.get("inspectEvents") or []),
             })
 
         for phase, arr in (("pre", pre), ("post", post)):
@@ -114,6 +148,8 @@ def flatten_sessions(docs, include_test):
                     "sessionId": sid,
                     "testRun": test_run,
                     "phase": phase,
+                    "form": t.get("form", ""),
+                    "position": t.get("position", ""),
                     "questionId": t.get("questionId", ""),
                     "isFraud": t.get("isFraud", ""),
                     "difficulty": t.get("difficulty", ""),

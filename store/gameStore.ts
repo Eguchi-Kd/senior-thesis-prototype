@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { buildSessionOrder, getScenarioById } from "@/lib/scenarios";
 import type { Difficulty } from "@/scenarios/types";
+import { drawTestForms, type TestForm } from "@/lib/testForms";
 
 export type Decision = "report" | "ignore";
 export type Answer = "fraud" | "safe";
@@ -34,14 +35,27 @@ export interface ScenarioLog {
   decision: Decision;
   confidence: number;
   hintUsed: boolean;
+  hintAtMs: number | null; // 判定画面を開いてからヒントを押すまで
+  decisionBeforeHint: Decision | null; // ヒントを押す前に選んでいた答え（未選択なら null）
   correct: boolean;
   signalType: SignalType;
   inspectedIds: string[]; // 調べたオブジェクト（プロセスデータ）
-  viewedBothModalities: boolean; // 現実側とデジタル側の両方を見たか
+  inspectEvents: InspectEvent[]; // 調査の開閉（順序・滞在時間・再訪を含む）
+  viewedAllRelevant: boolean; // 判定に必要なオブジェクトをすべて調べたか
+  distractorsInspected: number; // 調べたダミーオブジェクトの数
+}
+
+export interface InspectEvent {
+  id: string;
+  openMs: number; // シナリオ開始からの経過
+  dwellMs: number; // 調査パネルを開いていた時間
 }
 
 export interface TestLog {
   questionId: string;
+  form: TestForm;
+  position: number; // テスト内の出題順（1始まり・シャッフル後）
+  difficulty: Difficulty;
   isFraud: boolean;
   answer: Answer;
   correct: boolean;
@@ -71,6 +85,9 @@ interface GameState {
   startedAt: number;
   deviceInfo: { ua: string; screen: string; language: string } | null;
   testRun: boolean;
+  priorPlays: number; // この端末での過去のプレイ回数（再プレイの除外用）
+  testForms: { pre: TestForm; post: TestForm }; // 事前/事後テストのフォーム割付
+  phaseTimes: Record<string, number>; // 各フェーズの到達時刻（epoch ms）
 
   // シナリオ提示順
   scenarioOrder: number[];
@@ -82,7 +99,11 @@ interface GameState {
   judgeOpenTime: number | null;     // 判定UIを開いた時刻
   rtLocked: boolean; // シナリオ内で firstInspectTime を一度だけ確定する
   hintUsed: boolean;
+  hintAtMs: number | null;
+  decisionBeforeHint: Decision | null;
   currentInspected: string[]; // 現シナリオで調べたid
+  currentInspectEvents: InspectEvent[];
+  inspectOpenAt: number | null; // 開いている調査パネルの開始時刻
 
   logs: ScenarioLog[];
   preTestLogs: TestLog[];
@@ -100,8 +121,11 @@ interface GameState {
   startTimer: () => void;
   markScenarioStart: () => void;
   markJudgeOpen: () => void;
-  useHint: () => void;
+  useHint: (decisionBeforeHint: Decision | null) => void;
   recordInspect: (id: string) => void;
+  closeInspect: () => void;
+  markPhase: (name: string) => void;
+  setPriorPlays: (n: number) => void;
   submitDecision: (decision: Decision, confidence: number, correct: boolean, isFraud: boolean) => void;
   submitPreTest: (log: Omit<TestLog, "signalType">) => void;
   submitTransferTest: (log: Omit<TestLog, "signalType">) => void;
@@ -123,24 +147,21 @@ const captureDeviceInfo = () => {
   };
 };
 
-// URLに ?test=1 が付いていればテスト/パイロット実行として記録し、分析時に除外できるようにする
+// ?test=1 付き、または開発サーバー（next dev）での実行はテストとして記録し、分析時に除外できるようにする
 const isTestRun = () => {
+  if (process.env.NODE_ENV === "development") return true;
   if (typeof window === "undefined") return false;
   return new URLSearchParams(window.location.search).get("test") === "1";
 };
 
-// 現実側モダリティ（掲示物など）とデジタル側（スマホ）の両方を見たか判定
-function computeViewedBoth(scenarioId: number, inspected: string[]): boolean {
-  const scenario = getScenarioById(scenarioId);
-  const digitalIds = scenario.objects
-    .filter((o) => typeof o.content !== "string")
-    .map((o) => o.id);
-  const physicalIds = scenario.objects
-    .filter((o) => typeof o.content === "string")
-    .map((o) => o.id);
-  const sawDigital = digitalIds.some((id) => inspected.includes(id));
-  const sawPhysical = physicalIds.some((id) => inspected.includes(id));
-  return sawDigital && sawPhysical;
+// 関連オブジェクトの網羅とダミーへの寄り道を算出（探索プロセスの分析用）
+function computeRelevance(scenarioId: number, inspected: string[]) {
+  const { relevantIds } = getScenarioById(scenarioId);
+  const relevant: string[] = relevantIds;
+  return {
+    viewedAllRelevant: relevant.every((id) => inspected.includes(id)),
+    distractorsInspected: inspected.filter((id) => !relevant.includes(id)).length,
+  };
 }
 
 const initialState = () => ({
@@ -148,6 +169,9 @@ const initialState = () => ({
   startedAt: Date.now(),
   deviceInfo: captureDeviceInfo(),
   testRun: isTestRun(),
+  priorPlays: 0,
+  testForms: drawTestForms(),
+  phaseTimes: {} as Record<string, number>,
   scenarioOrder: buildSessionOrder(),
   currentIndex: 0,
   phase: "title" as GamePhase,
@@ -156,7 +180,11 @@ const initialState = () => ({
   judgeOpenTime: null,
   rtLocked: false,
   hintUsed: false,
+  hintAtMs: null as number | null,
+  decisionBeforeHint: null as Decision | null,
   currentInspected: [] as string[],
+  currentInspectEvents: [] as InspectEvent[],
+  inspectOpenAt: null as number | null,
   logs: [] as ScenarioLog[],
   preTestLogs: [] as TestLog[],
   transferTestLogs: [] as TestLog[],
@@ -187,7 +215,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       judgeOpenTime: null,
       rtLocked: false,
       hintUsed: false,
+      hintAtMs: null,
+      decisionBeforeHint: null,
       currentInspected: [],
+      currentInspectEvents: [],
+      inspectOpenAt: null,
     }),
 
   // 判定UIを開いた時刻（初回のみ記録）
@@ -196,17 +228,49 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ judgeOpenTime: performance.now() });
   },
 
-  useHint: () => set({ hintUsed: true }),
-
-  recordInspect: (id) => {
-    const { currentInspected } = get();
-    if (!currentInspected.includes(id)) {
-      set({ currentInspected: [...currentInspected, id] });
-    }
+  // 初回使用時のみタイミングとヒント前の答えを記録
+  useHint: (decisionBeforeHint) => {
+    const { hintUsed, judgeOpenTime } = get();
+    if (hintUsed) return;
+    set({
+      hintUsed: true,
+      hintAtMs: judgeOpenTime != null ? Math.round(performance.now() - judgeOpenTime) : null,
+      decisionBeforeHint,
+    });
   },
 
+  recordInspect: (id) => {
+    const { currentInspected, currentInspectEvents, scenarioStartTime } = get();
+    const now = performance.now();
+    set({
+      currentInspected: currentInspected.includes(id) ? currentInspected : [...currentInspected, id],
+      currentInspectEvents: [
+        ...currentInspectEvents,
+        { id, openMs: scenarioStartTime != null ? Math.round(now - scenarioStartTime) : 0, dwellMs: 0 },
+      ],
+      inspectOpenAt: now,
+    });
+  },
+
+  closeInspect: () => {
+    const { currentInspectEvents, inspectOpenAt } = get();
+    if (inspectOpenAt == null || currentInspectEvents.length === 0) return;
+    const events = [...currentInspectEvents];
+    const last = events[events.length - 1];
+    events[events.length - 1] = { ...last, dwellMs: Math.round(performance.now() - inspectOpenAt) };
+    set({ currentInspectEvents: events, inspectOpenAt: null });
+  },
+
+  markPhase: (name) => {
+    const { phaseTimes } = get();
+    if (phaseTimes[name] != null) return;
+    set({ phaseTimes: { ...phaseTimes, [name]: Date.now() } });
+  },
+
+  setPriorPlays: (n) => set({ priorPlays: n }),
+
   submitDecision: (decision, confidence, correct, isFraud) => {
-    const { scenarioOrder, currentIndex, hintUsed, logs, currentInspected, scenarioStartTime, firstInspectTime, judgeOpenTime } = get();
+    const { scenarioOrder, currentIndex, hintUsed, hintAtMs, decisionBeforeHint, logs, currentInspected, currentInspectEvents, scenarioStartTime, firstInspectTime, judgeOpenTime } = get();
     const scenarioId = scenarioOrder[currentIndex];
     const now = performance.now();
     const reactionTimeMs = firstInspectTime != null ? Math.round(now - firstInspectTime) : 0;
@@ -224,10 +288,13 @@ export const useGameStore = create<GameState>((set, get) => ({
       decision,
       confidence,
       hintUsed,
+      hintAtMs,
+      decisionBeforeHint,
       correct,
       signalType: deriveSignalType(decision, isFraud),
       inspectedIds: currentInspected,
-      viewedBothModalities: computeViewedBoth(scenarioId, currentInspected),
+      inspectEvents: currentInspectEvents,
+      ...computeRelevance(scenarioId, currentInspected),
     };
     set({ logs: [...logs, log] });
   },
