@@ -1,15 +1,46 @@
 rules_version = '2';
 
 // ハイブリッド構成:
-//   配信は GitHub Pages、Firebase は Firestore へのログ/セーブ書き込みにのみ使用する。
-//   安全性は「書込のみ許可・読取禁止」ルールで担保する（NEXT_PUBLIC_* の秘匿では守らない）。
+//   配信は GitHub Pages、Firebase は Firestore へのログ書き込みと匿名の集計にのみ使用する。
+//   安全性はルールで担保する（NEXT_PUBLIC_* の秘匿では守らない）。
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 被験者セッションログ / セーブデータ
+    // 被験者セッションログ：書き込みのみ（閲覧は管理者のみ）
     match /sessions/{docId} {
-      allow create, update: if true;           // 匿名の作成・merge更新を許可（フェーズごとの逐次保存＝途中離脱対策）
-      allow read, delete: if false;            // 読取・削除は禁止（閲覧は Firebase Console 管理者のみ）
+      allow create, update: if true;
+      allow read, delete: if false;
+    }
+
+    // 他プレイヤー比較用の匿名集計（人数カウントのみ）。
+    // 誰でも読めるが、決められた項目を「1ずつ増やす」更新だけを許可する。
+    match /stats/{statId} {
+      function allowedKeys() {
+        return ['n', 'g0', 'g1', 'g2', 'g3', 'g4', 'g5', 'g6',
+                'p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6',
+                't_detective', 't_cautious', 't_trusting', 't_intuitive', 't_balanced'];
+      }
+      function changed() {
+        return request.resource.data.diff(resource.data).affectedKeys();
+      }
+      function incOk(k) {
+        return !(k in changed()) || request.resource.data[k] == resource.data.get(k, 0) + 1;
+      }
+
+      allow get: if statId == 'festival2026';
+      allow create: if statId == 'festival2026'
+        && request.resource.data.keys().hasOnly(allowedKeys())
+        && request.resource.data.size() == 4
+        && request.resource.data.values().hasOnly([1]);
+      allow update: if statId == 'festival2026'
+        && changed().hasOnly(allowedKeys())
+        && changed().size() == 4
+        && 'n' in changed()
+        && incOk('n')
+        && incOk('g0') && incOk('g1') && incOk('g2') && incOk('g3') && incOk('g4') && incOk('g5') && incOk('g6')
+        && incOk('p0') && incOk('p1') && incOk('p2') && incOk('p3') && incOk('p4') && incOk('p5') && incOk('p6')
+        && incOk('t_detective') && incOk('t_cautious') && incOk('t_trusting') && incOk('t_intuitive') && incOk('t_balanced');
+      allow list, delete: if false;
     }
 
     // 上記以外へのアクセスはすべて拒否

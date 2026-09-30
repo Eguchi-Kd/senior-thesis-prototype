@@ -8,10 +8,12 @@ interface Props {
   title: string;
   explanation: string;
   learningPoint: string;
+  newCard: boolean; // この端末で初めて入手したカードか
+  isLast: boolean;
   onNext: () => void;
 }
 
-export function FeedbackCard({ correct, title, explanation, learningPoint, onNext }: Props) {
+export function FeedbackCard({ correct, title, explanation, learningPoint, newCard, isLast, onNext }: Props) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -34,7 +36,7 @@ export function FeedbackCard({ correct, title, explanation, learningPoint, onNex
           {correct ? "✅" : "❌"}
         </motion.div>
         <h2 className={`text-xl font-bold text-center mb-4 ${correct ? "text-green-600" : "text-red-600"}`}>
-          {correct ? "正解！よく気づきました" : "不正解"}
+          {correct ? "正解！お見事！" : "不正解"}
         </h2>
 
         <div className="bg-gray-50 rounded-xl p-4 mb-4">
@@ -49,7 +51,7 @@ export function FeedbackCard({ correct, title, explanation, learningPoint, onNex
               transition={{ delay: 0.2 }}
               className="text-center text-sm font-bold text-blue-700 mb-2"
             >
-              🎉 学習カードを獲得！
+              {newCard ? "🎉 新しい学習カードを獲得！" : "📇 学習カード（入手済み）"}
             </motion.p>
             <LearningCard title={title} learningPoint={learningPoint} delay={0.3} />
           </div>
@@ -64,7 +66,7 @@ export function FeedbackCard({ correct, title, explanation, learningPoint, onNex
           onClick={onNext}
           className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold"
         >
-          次のシナリオへ →
+          {isLast ? "結果へ →" : "次のシナリオへ →"}
         </button>
       </motion.div>
     </motion.div>

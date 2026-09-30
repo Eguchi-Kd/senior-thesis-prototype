@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
@@ -57,6 +57,9 @@ export default function IntakePage() {
   const router = useRouter();
   const setDemographics = useGameStore((s) => s.setDemographics);
   const markPhase = useGameStore((s) => s.markPhase);
+  const setPhase = useGameStore((s) => s.setPhase);
+
+  useEffect(() => setPhase("intake"), [setPhase]);
 
   const [ageGroup, setAgeGroup] = useState("");
   const [occupation, setOccupation] = useState("");
@@ -70,8 +73,8 @@ export default function IntakePage() {
   const handleNext = () => {
     if (!ready) return;
     setDemographics(
-      { ageGroup, occupation, gender, scamExperience, itConfidence: String(itConfidence) },
-      selfEfficacyPre,
+      { ageGroup, occupation, gender, scamExperience, itConfidence: itConfidence! },
+      selfEfficacyPre!,
     );
     markPhase("intakeEnd");
     void saveSnapshot();

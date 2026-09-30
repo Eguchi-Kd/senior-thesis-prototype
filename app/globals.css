@@ -24,9 +24,15 @@ body {
   height: 100%;
 }
 
+/* 全画面が濃色UIのため、OSのライト/ダーク設定に関係なく背景を濃色に固定（スクロール時に白が見えないように） */
+html {
+  background: #030712;
+}
+
 body {
-  background: var(--background);
+  background: #030712;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   overscroll-behavior: none; /* 引っ張りバウンス/リロードを抑制 */
+  overflow-x: hidden; /* 登場アニメーションの横はみ出しでスクロールしないように */
 }

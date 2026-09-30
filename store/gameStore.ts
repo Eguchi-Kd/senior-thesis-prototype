@@ -1,7 +1,10 @@
 import { create } from "zustand";
+import { persist, createJSONStorage, type StateStorage } from "zustand/middleware";
 import { buildSessionOrder, getScenarioById } from "@/lib/scenarios";
 import type { Difficulty } from "@/scenarios/types";
-import { drawTestForms, type TestForm } from "@/lib/testForms";
+import { drawTestForms, testForms as formQuestions, type TestForm } from "@/lib/testForms";
+import { shuffle } from "@/lib/shuffle";
+import { SCHEMA_VERSION, CONTENT_VERSION } from "@/lib/version";
 
 export type Decision = "report" | "ignore";
 export type Answer = "fraud" | "safe";
@@ -10,6 +13,10 @@ export type SignalType = "hit" | "miss" | "fa" | "cr";
 
 export type GamePhase =
   | "title"
+  | "consent"
+  | "intake"
+  | "pretest"
+  | "practice"
   | "exploring"
   | "investigating"
   | "judging"
@@ -18,31 +25,12 @@ export type GamePhase =
   | "survey"
   | "result";
 
+const GAME_PHASES: GamePhase[] = ["exploring", "investigating", "judging", "feedback"];
+
 // decision × isFraud から信号検出のカテゴリを確定的に導出
 export function deriveSignalType(decision: Decision, isFraud: boolean): SignalType {
   if (isFraud) return decision === "report" ? "hit" : "miss";
   return decision === "report" ? "fa" : "cr";
-}
-
-export interface ScenarioLog {
-  scenarioId: number;
-  isFraud: boolean;
-  difficulty: Difficulty; // 項目難易度（易/中/難）— 項目レベル分析・天井効果の確認に使う
-  presentationOrder: number; // 提示順位（1始まり）— 順序効果の統制に使う
-  reactionTimeMs: number; // 主要RT：初回調査→判定
-  explorationTimeMs: number; // シナリオ開始→最初の調査（探索時間）
-  decisionLatencyMs: number; // 判定UI表示→決定（決定潜時）
-  decision: Decision;
-  confidence: number;
-  hintUsed: boolean;
-  hintAtMs: number | null; // 判定画面を開いてからヒントを押すまで
-  decisionBeforeHint: Decision | null; // ヒントを押す前に選んでいた答え（未選択なら null）
-  correct: boolean;
-  signalType: SignalType;
-  inspectedIds: string[]; // 調べたオブジェクト（プロセスデータ）
-  inspectEvents: InspectEvent[]; // 調査の開閉（順序・滞在時間・再訪を含む）
-  viewedAllRelevant: boolean; // 判定に必要なオブジェクトをすべて調べたか
-  distractorsInspected: number; // 調べたダミーオブジェクトの数
 }
 
 export interface InspectEvent {
@@ -51,16 +39,42 @@ export interface InspectEvent {
   dwellMs: number; // 調査パネルを開いていた時間
 }
 
+export interface ScenarioLog {
+  scenarioId: number;
+  isFraud: boolean;
+  difficulty: Difficulty; // 項目難易度（易/中/難）
+  presentationOrder: number; // 提示順位（1始まり）
+  reactionTimeMs: number; // 主要RT：初回調査→最終決定
+  explorationTimeMs: number; // シナリオ開始→最初の調査
+  decisionLatencyMs: number; // 最初に判定画面を開く→決定
+  finalJudgeLatencyMs: number; // 最後に判定画面を開く→決定
+  judgeOpenCount: number; // 判定画面を開いた回数（2以上＝調べ直した）
+  decision: Decision;
+  confidence: number;
+  hintUsed: boolean;
+  hintAtMs: number | null; // 判定画面を最初に開いてからヒントを押すまで
+  decisionBeforeHint: Decision | null; // ヒントを押す前に選んでいた答え（未選択なら null）
+  correct: boolean;
+  signalType: SignalType;
+  inspectedIds: string[];
+  inspectEvents: InspectEvent[];
+  viewedAllRelevant: boolean; // 判定に必要なオブジェクトをすべて調べたか
+  distractorsInspected: number; // 調べたダミーオブジェクトの数
+  hiddenMs: number; // このシナリオ中に画面が非表示だった時間（RTから除外する判断用）
+  restarted: boolean; // 再読み込みでこのシナリオをやり直したか
+}
+
 export interface TestLog {
   questionId: string;
   form: TestForm;
-  position: number; // テスト内の出題順（1始まり・シャッフル後）
+  position: number; // テスト内の出題順（1始まり）
   difficulty: Difficulty;
   isFraud: boolean;
   answer: Answer;
   correct: boolean;
   confidence: number;
   reactionTimeMs: number;
+  hiddenMs: number;
   signalType: SignalType;
 }
 
@@ -69,41 +83,65 @@ export interface Demographics {
   occupation: string;
   gender: string;
   scamExperience: string;
-  itConfidence: string;
+  itConfidence: number;
 }
 
 export interface Survey {
   learning: number;
   immersion: number;
   difficulty: number;
-  sus: number[]; // SUS簡易(5項目)
+  sus: number[]; // SUS 10項目
   freeText: string;
+}
+
+export interface DeviceInfo {
+  ua: string;
+  screen: string;
+  viewport: string;
+  touch: boolean;
+  orientation: string;
+  language: string;
 }
 
 interface GameState {
   sessionId: string;
+  schemaVersion: number;
+  contentVersion: string;
   startedAt: number;
-  deviceInfo: { ua: string; screen: string; language: string } | null;
+  deviceInfo: DeviceInfo | null;
   testRun: boolean;
-  priorPlays: number; // この端末での過去のプレイ回数（再プレイの除外用）
-  testForms: { pre: TestForm; post: TestForm }; // 事前/事後テストのフォーム割付
+  priorPlays: number; // この端末での過去のプレイ回数（-1=取得不可）。共用端末があるので自動除外には使わない
+  testForms: { pre: TestForm; post: TestForm };
+  testItemOrder: { pre: string[]; post: string[] }; // 出題順（再読み込みでも同じ順で続きから）
   phaseTimes: Record<string, number>; // 各フェーズの到達時刻（epoch ms）
+  resumeCount: number; // 再読み込みで再開した回数
 
-  // シナリオ提示順
+  // 画面の非表示（アプリ切替など）の記録。一時的な切替を「離脱」とは決めない
+  hiddenCount: number;
+  hiddenTotalMs: number;
+  hiddenAt: number | null;
+  lastHiddenPhase: GamePhase | null;
+
   scenarioOrder: number[];
   currentIndex: number;
-
   phase: GamePhase;
-  scenarioStartTime: number | null; // シナリオ開始（探索開始）時刻
-  firstInspectTime: number | null;  // 最初の調査を開いた時刻（主要RTの起点）
-  judgeOpenTime: number | null;     // 判定UIを開いた時刻
-  rtLocked: boolean; // シナリオ内で firstInspectTime を一度だけ確定する
+  practiceDone: boolean;
+
+  // シナリオ内の計測（performance.now 基準。再読み込みで無効になるためリセットする）
+  scenarioStartTime: number | null;
+  firstInspectTime: number | null;
+  judgeOpenTime: number | null;
+  lastJudgeOpenTime: number | null;
+  judgeOpenCount: number;
+  rtLocked: boolean;
+  scenarioHiddenStart: number; // シナリオ開始時点の hiddenTotalMs
+  scenarioRestarted: boolean;
   hintUsed: boolean;
   hintAtMs: number | null;
   decisionBeforeHint: Decision | null;
-  currentInspected: string[]; // 現シナリオで調べたid
+  currentInspected: string[];
   currentInspectEvents: InspectEvent[];
-  inspectOpenAt: number | null; // 開いている調査パネルの開始時刻
+  inspectOpenAt: number | null;
 
   logs: ScenarioLog[];
   preTestLogs: TestLog[];
@@ -114,7 +152,8 @@ interface GameState {
   selfEfficacyPre: number | null;
   selfEfficacyPost: number | null;
   survey: Survey | null;
-  dropoutPhase: GamePhase | null;
+  resultType: string | null;
+  statsSubmitted: boolean;
 
   // actions
   setPhase: (phase: GamePhase) => void;
@@ -126,6 +165,9 @@ interface GameState {
   closeInspect: () => void;
   markPhase: (name: string) => void;
   setPriorPlays: (n: number) => void;
+  markHidden: () => void;
+  markVisible: () => void;
+  completePractice: () => void;
   submitDecision: (decision: Decision, confidence: number, correct: boolean, isFraud: boolean) => void;
   submitPreTest: (log: Omit<TestLog, "signalType">) => void;
   submitTransferTest: (log: Omit<TestLog, "signalType">) => void;
@@ -133,16 +175,21 @@ interface GameState {
   setConsent: (agreed: boolean) => void;
   setDemographics: (d: Demographics, selfEfficacyPre: number) => void;
   setSurvey: (s: Survey, selfEfficacyPost: number) => void;
+  setResultType: (t: string) => void;
+  markStatsSubmitted: () => void;
   reset: () => void;
 }
 
 const generateSessionId = () => `session_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
-const captureDeviceInfo = () => {
+const captureDeviceInfo = (): DeviceInfo | null => {
   if (typeof window === "undefined") return null;
   return {
     ua: navigator.userAgent,
     screen: `${window.screen.width}x${window.screen.height}`,
+    viewport: `${window.innerWidth}x${window.innerHeight}`,
+    touch: "ontouchstart" in window || navigator.maxTouchPoints > 0,
+    orientation: window.innerWidth >= window.innerHeight ? "landscape" : "portrait",
     language: navigator.language,
   };
 };
@@ -156,28 +203,19 @@ const isTestRun = () => {
 
 // 関連オブジェクトの網羅とダミーへの寄り道を算出（探索プロセスの分析用）
 function computeRelevance(scenarioId: number, inspected: string[]) {
-  const { relevantIds } = getScenarioById(scenarioId);
-  const relevant: string[] = relevantIds;
+  const relevant: string[] = getScenarioById(scenarioId).relevantIds;
   return {
     viewedAllRelevant: relevant.every((id) => inspected.includes(id)),
     distractorsInspected: inspected.filter((id) => !relevant.includes(id)).length,
   };
 }
 
-const initialState = () => ({
-  sessionId: generateSessionId(),
-  startedAt: Date.now(),
-  deviceInfo: captureDeviceInfo(),
-  testRun: isTestRun(),
-  priorPlays: 0,
-  testForms: drawTestForms(),
-  phaseTimes: {} as Record<string, number>,
-  scenarioOrder: buildSessionOrder(),
-  currentIndex: 0,
-  phase: "title" as GamePhase,
-  scenarioStartTime: null,
-  firstInspectTime: null,
-  judgeOpenTime: null,
+const perScenarioReset = () => ({
+  scenarioStartTime: null as number | null,
+  firstInspectTime: null as number | null,
+  judgeOpenTime: null as number | null,
+  lastJudgeOpenTime: null as number | null,
+  judgeOpenCount: 0,
   rtLocked: false,
   hintUsed: false,
   hintAtMs: null as number | null,
@@ -185,151 +223,232 @@ const initialState = () => ({
   currentInspected: [] as string[],
   currentInspectEvents: [] as InspectEvent[],
   inspectOpenAt: null as number | null,
-  logs: [] as ScenarioLog[],
-  preTestLogs: [] as TestLog[],
-  transferTestLogs: [] as TestLog[],
-  consent: { agreed: false, timestamp: null as number | null },
-  demographics: null as Demographics | null,
-  selfEfficacyPre: null as number | null,
-  selfEfficacyPost: null as number | null,
-  survey: null as Survey | null,
-  dropoutPhase: null as GamePhase | null,
 });
 
-export const useGameStore = create<GameState>((set, get) => ({
-  ...initialState(),
+const initialState = () => {
+  const forms = drawTestForms();
+  return {
+    sessionId: generateSessionId(),
+    schemaVersion: SCHEMA_VERSION,
+    contentVersion: CONTENT_VERSION,
+    startedAt: Date.now(),
+    deviceInfo: captureDeviceInfo(),
+    testRun: isTestRun(),
+    priorPlays: 0,
+    testForms: forms,
+    testItemOrder: {
+      pre: shuffle(formQuestions[forms.pre].map((q) => q.id)),
+      post: shuffle(formQuestions[forms.post].map((q) => q.id)),
+    },
+    phaseTimes: {} as Record<string, number>,
+    resumeCount: 0,
+    hiddenCount: 0,
+    hiddenTotalMs: 0,
+    hiddenAt: null as number | null,
+    lastHiddenPhase: null as GamePhase | null,
+    scenarioOrder: buildSessionOrder(),
+    currentIndex: 0,
+    phase: "title" as GamePhase,
+    practiceDone: false,
+    ...perScenarioReset(),
+    scenarioHiddenStart: 0,
+    scenarioRestarted: false,
+    logs: [] as ScenarioLog[],
+    preTestLogs: [] as TestLog[],
+    transferTestLogs: [] as TestLog[],
+    consent: { agreed: false, timestamp: null as number | null },
+    demographics: null as Demographics | null,
+    selfEfficacyPre: null as number | null,
+    selfEfficacyPost: null as number | null,
+    survey: null as Survey | null,
+    resultType: null as string | null,
+    statsSubmitted: false,
+  };
+};
 
-  setPhase: (phase) => set({ phase }),
+// サーバー（静的書き出し時）では何も保存しないダミーストレージ
+const noopStorage: StateStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 
-  // rtLocked が立っている間は再スタートしない（再タップでRTが歪むのを防ぐ）
-  startTimer: () => {
-    if (get().rtLocked) return;
-    set({ firstInspectTime: performance.now(), rtLocked: true });
-  },
+export const useGameStore = create<GameState>()(
+  persist(
+    (set, get) => ({
+      ...initialState(),
 
-  // 各シナリオ開始時に時刻と per-scenario 状態をリセット
-  markScenarioStart: () =>
-    set({
-      scenarioStartTime: performance.now(),
-      firstInspectTime: null,
-      judgeOpenTime: null,
-      rtLocked: false,
-      hintUsed: false,
-      hintAtMs: null,
-      decisionBeforeHint: null,
-      currentInspected: [],
-      currentInspectEvents: [],
-      inspectOpenAt: null,
+      setPhase: (phase) => set({ phase }),
+
+      // rtLocked が立っている間は再スタートしない（再タップでRTが歪むのを防ぐ）
+      startTimer: () => {
+        if (get().rtLocked) return;
+        set({ firstInspectTime: performance.now(), rtLocked: true });
+      },
+
+      // 各シナリオ開始時に時刻と per-scenario 状態をリセット
+      markScenarioStart: () =>
+        set({ ...perScenarioReset(), scenarioStartTime: performance.now(), scenarioHiddenStart: get().hiddenTotalMs }),
+
+      // 判定画面を開いた時刻（最初と最後の両方）と回数
+      markJudgeOpen: () => {
+        const now = performance.now();
+        const { judgeOpenTime, judgeOpenCount } = get();
+        set({ judgeOpenTime: judgeOpenTime ?? now, lastJudgeOpenTime: now, judgeOpenCount: judgeOpenCount + 1 });
+      },
+
+      // 初回使用時のみタイミングとヒント前の答えを記録
+      useHint: (decisionBeforeHint) => {
+        const { hintUsed, judgeOpenTime } = get();
+        if (hintUsed) return;
+        set({
+          hintUsed: true,
+          hintAtMs: judgeOpenTime != null ? Math.round(performance.now() - judgeOpenTime) : null,
+          decisionBeforeHint,
+        });
+      },
+
+      recordInspect: (id) => {
+        const { currentInspected, currentInspectEvents, scenarioStartTime } = get();
+        const now = performance.now();
+        set({
+          currentInspected: currentInspected.includes(id) ? currentInspected : [...currentInspected, id],
+          currentInspectEvents: [
+            ...currentInspectEvents,
+            { id, openMs: scenarioStartTime != null ? Math.round(now - scenarioStartTime) : 0, dwellMs: 0 },
+          ],
+          inspectOpenAt: now,
+        });
+      },
+
+      closeInspect: () => {
+        const { currentInspectEvents, inspectOpenAt } = get();
+        if (inspectOpenAt == null || currentInspectEvents.length === 0) return;
+        const events = [...currentInspectEvents];
+        const last = events[events.length - 1];
+        events[events.length - 1] = { ...last, dwellMs: Math.round(performance.now() - inspectOpenAt) };
+        set({ currentInspectEvents: events, inspectOpenAt: null });
+      },
+
+      markPhase: (name) => {
+        const { phaseTimes } = get();
+        if (phaseTimes[name] != null) return;
+        set({ phaseTimes: { ...phaseTimes, [name]: Date.now() } });
+      },
+
+      setPriorPlays: (n) => set({ priorPlays: n }),
+
+      markHidden: () => {
+        if (get().hiddenAt != null) return;
+        set((s) => ({ hiddenAt: Date.now(), hiddenCount: s.hiddenCount + 1, lastHiddenPhase: s.phase }));
+      },
+
+      markVisible: () => {
+        const { hiddenAt, hiddenTotalMs } = get();
+        if (hiddenAt == null) return;
+        set({ hiddenAt: null, hiddenTotalMs: hiddenTotalMs + (Date.now() - hiddenAt) });
+      },
+
+      completePractice: () => set({ practiceDone: true }),
+
+      submitDecision: (decision, confidence, correct, isFraud) => {
+        const s = get();
+        const scenarioId = s.scenarioOrder[s.currentIndex];
+        const now = performance.now();
+        const since = (t: number | null) => (t != null ? Math.round(now - t) : 0);
+        const log: ScenarioLog = {
+          scenarioId,
+          isFraud,
+          difficulty: getScenarioById(scenarioId).difficulty,
+          presentationOrder: s.currentIndex + 1,
+          reactionTimeMs: since(s.firstInspectTime),
+          explorationTimeMs:
+            s.scenarioStartTime != null && s.firstInspectTime != null
+              ? Math.round(s.firstInspectTime - s.scenarioStartTime)
+              : 0,
+          decisionLatencyMs: since(s.judgeOpenTime),
+          finalJudgeLatencyMs: since(s.lastJudgeOpenTime),
+          judgeOpenCount: s.judgeOpenCount,
+          decision,
+          confidence,
+          hintUsed: s.hintUsed,
+          hintAtMs: s.hintAtMs,
+          decisionBeforeHint: s.decisionBeforeHint,
+          correct,
+          signalType: deriveSignalType(decision, isFraud),
+          inspectedIds: s.currentInspected,
+          inspectEvents: s.currentInspectEvents,
+          ...computeRelevance(scenarioId, s.currentInspected),
+          hiddenMs: s.hiddenTotalMs - s.scenarioHiddenStart,
+          restarted: s.scenarioRestarted,
+        };
+        set({ logs: [...s.logs, log], scenarioRestarted: false });
+      },
+
+      submitPreTest: (log) =>
+        set((state) => ({
+          preTestLogs: [
+            ...state.preTestLogs,
+            { ...log, signalType: deriveSignalType(log.answer === "fraud" ? "report" : "ignore", log.isFraud) },
+          ],
+        })),
+
+      submitTransferTest: (log) =>
+        set((state) => ({
+          transferTestLogs: [
+            ...state.transferTestLogs,
+            { ...log, signalType: deriveSignalType(log.answer === "fraud" ? "report" : "ignore", log.isFraud) },
+          ],
+        })),
+
+      nextScenario: () => {
+        const { currentIndex, scenarioOrder } = get();
+        if (currentIndex >= scenarioOrder.length - 1) {
+          set({ phase: "transfer_test" });
+        } else {
+          // per-scenario のリセットは markScenarioStart（GameClient の currentIndex 効果）が担う
+          set({ currentIndex: currentIndex + 1, phase: "exploring" });
+        }
+      },
+
+      setConsent: (agreed) => set({ consent: { agreed, timestamp: Date.now() } }),
+
+      setDemographics: (d, selfEfficacyPre) => set({ demographics: d, selfEfficacyPre }),
+
+      setSurvey: (s, selfEfficacyPost) => set({ survey: s, selfEfficacyPost }),
+
+      setResultType: (t) => set({ resultType: t }),
+
+      markStatsSubmitted: () => set({ statsSubmitted: true }),
+
+      reset: () => set({ ...initialState() }),
     }),
-
-  // 判定UIを開いた時刻（初回のみ記録）
-  markJudgeOpen: () => {
-    if (get().judgeOpenTime != null) return;
-    set({ judgeOpenTime: performance.now() });
-  },
-
-  // 初回使用時のみタイミングとヒント前の答えを記録
-  useHint: (decisionBeforeHint) => {
-    const { hintUsed, judgeOpenTime } = get();
-    if (hintUsed) return;
-    set({
-      hintUsed: true,
-      hintAtMs: judgeOpenTime != null ? Math.round(performance.now() - judgeOpenTime) : null,
-      decisionBeforeHint,
-    });
-  },
-
-  recordInspect: (id) => {
-    const { currentInspected, currentInspectEvents, scenarioStartTime } = get();
-    const now = performance.now();
-    set({
-      currentInspected: currentInspected.includes(id) ? currentInspected : [...currentInspected, id],
-      currentInspectEvents: [
-        ...currentInspectEvents,
-        { id, openMs: scenarioStartTime != null ? Math.round(now - scenarioStartTime) : 0, dwellMs: 0 },
-      ],
-      inspectOpenAt: now,
-    });
-  },
-
-  closeInspect: () => {
-    const { currentInspectEvents, inspectOpenAt } = get();
-    if (inspectOpenAt == null || currentInspectEvents.length === 0) return;
-    const events = [...currentInspectEvents];
-    const last = events[events.length - 1];
-    events[events.length - 1] = { ...last, dwellMs: Math.round(performance.now() - inspectOpenAt) };
-    set({ currentInspectEvents: events, inspectOpenAt: null });
-  },
-
-  markPhase: (name) => {
-    const { phaseTimes } = get();
-    if (phaseTimes[name] != null) return;
-    set({ phaseTimes: { ...phaseTimes, [name]: Date.now() } });
-  },
-
-  setPriorPlays: (n) => set({ priorPlays: n }),
-
-  submitDecision: (decision, confidence, correct, isFraud) => {
-    const { scenarioOrder, currentIndex, hintUsed, hintAtMs, decisionBeforeHint, logs, currentInspected, currentInspectEvents, scenarioStartTime, firstInspectTime, judgeOpenTime } = get();
-    const scenarioId = scenarioOrder[currentIndex];
-    const now = performance.now();
-    const reactionTimeMs = firstInspectTime != null ? Math.round(now - firstInspectTime) : 0;
-    const explorationTimeMs =
-      scenarioStartTime != null && firstInspectTime != null ? Math.round(firstInspectTime - scenarioStartTime) : 0;
-    const decisionLatencyMs = judgeOpenTime != null ? Math.round(now - judgeOpenTime) : 0;
-    const log: ScenarioLog = {
-      scenarioId,
-      isFraud,
-      difficulty: getScenarioById(scenarioId).difficulty,
-      presentationOrder: currentIndex + 1,
-      reactionTimeMs,
-      explorationTimeMs,
-      decisionLatencyMs,
-      decision,
-      confidence,
-      hintUsed,
-      hintAtMs,
-      decisionBeforeHint,
-      correct,
-      signalType: deriveSignalType(decision, isFraud),
-      inspectedIds: currentInspected,
-      inspectEvents: currentInspectEvents,
-      ...computeRelevance(scenarioId, currentInspected),
-    };
-    set({ logs: [...logs, log] });
-  },
-
-  submitPreTest: (log) =>
-    set((state) => ({
-      preTestLogs: [
-        ...state.preTestLogs,
-        { ...log, signalType: deriveSignalType(log.answer === "fraud" ? "report" : "ignore", log.isFraud) },
-      ],
-    })),
-
-  submitTransferTest: (log) =>
-    set((state) => ({
-      transferTestLogs: [
-        ...state.transferTestLogs,
-        { ...log, signalType: deriveSignalType(log.answer === "fraud" ? "report" : "ignore", log.isFraud) },
-      ],
-    })),
-
-  nextScenario: () => {
-    const { currentIndex, scenarioOrder } = get();
-    if (currentIndex >= scenarioOrder.length - 1) {
-      set({ phase: "transfer_test" });
-    } else {
-      // per-scenario のリセットは markScenarioStart（GameClient の currentIndex 効果）が担う
-      set({ currentIndex: currentIndex + 1, phase: "exploring" });
-    }
-  },
-
-  setConsent: (agreed) => set({ consent: { agreed, timestamp: Date.now() } }),
-
-  setDemographics: (d, selfEfficacyPre) => set({ demographics: d, selfEfficacyPre }),
-
-  setSurvey: (s, selfEfficacyPost) => set({ survey: s, selfEfficacyPost }),
-
-  reset: () => set({ ...initialState() }),
-}));
+    {
+      name: "scamDetective.session",
+      storage: createJSONStorage(() => (typeof window !== "undefined" ? sessionStorage : noopStorage)),
+      // 再読み込み後は performance.now 基準の時刻が無効になるので、計測中のシナリオをやり直しにする
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        const inGame = GAME_PHASES.includes(state.phase);
+        const answeredCurrent = state.logs.length > state.currentIndex;
+        const patch: Partial<GameState> = {
+          ...perScenarioReset(),
+          hiddenAt: null,
+          deviceInfo: captureDeviceInfo() ?? state.deviceInfo,
+        };
+        if (inGame || state.phase === "practice" || state.phase === "pretest" || state.phase === "transfer_test") {
+          patch.resumeCount = state.resumeCount + 1;
+        }
+        if (inGame) {
+          if (answeredCurrent) {
+            // 判定済み（フィードバック表示中）で再読み込み → 次のシナリオへ進める
+            const last = state.currentIndex >= state.scenarioOrder.length - 1;
+            patch.phase = last ? "transfer_test" : "exploring";
+            if (!last) patch.currentIndex = state.currentIndex + 1;
+          } else {
+            patch.phase = "exploring";
+            patch.scenarioRestarted = true;
+          }
+        }
+        // 復元はストア生成中に同期で走り useGameStore が未定義のため、生成後に反映する
+        queueMicrotask(() => useGameStore.setState(patch));
+      },
+    },
+  ),
+);

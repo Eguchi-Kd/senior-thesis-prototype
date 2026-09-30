@@ -1,63 +1,105 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Canvas } from "@react-three/fiber";
-import { useGameStore } from "@/store/gameStore";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Room } from "@/components/game/Room";
 import { FPSControls } from "@/components/game/FPSControls";
 import { PostFX } from "@/components/game/PostFX";
 import { ConfidenceSlider } from "@/components/ui/ConfidenceSlider";
 import { FeedbackCard } from "@/components/ui/FeedbackCard";
+import { StageScreen } from "@/components/ui/StageScreen";
+import { useGameStore, type Decision } from "@/store/gameStore";
 import { getScenarioById } from "@/lib/scenarios";
-import { saveSnapshot, registerDropoutSave } from "@/lib/logger";
+import { practiceScenario } from "@/scenarios/practice";
+import { saveSnapshot } from "@/lib/logger";
+import { addToCollection, scenarioCardId } from "@/lib/collection";
+
+type Stage = "intro" | "practice" | "main" | "outro";
+type PracticeCheck = { move: boolean; look: boolean; inspect: boolean };
 
 export default function GameClient() {
   const router = useRouter();
-  const { phase, setPhase, startTimer, markScenarioStart, markJudgeOpen, submitDecision, nextScenario, hintUsed, useHint, recordInspect, closeInspect, markPhase, currentInspected, scenarioOrder, currentIndex } = useGameStore();
+  const {
+    phase, setPhase, startTimer, markScenarioStart, markJudgeOpen, submitDecision, nextScenario,
+    hintUsed, useHint, recordInspect, closeInspect, markPhase, completePractice,
+    currentInspected, scenarioOrder, currentIndex, practiceDone,
+  } = useGameStore();
+
+  // 再読み込み時：本編を終えていれば終了画面、練習済みなら本編から
+  const [stage, setStage] = useState<Stage>(() =>
+    phase === "transfer_test" ? "outro" : practiceDone ? "main" : "intro",
+  );
   const [inspectedId, setInspectedId] = useState<string | null>(null);
   const [showJudge, setShowJudge] = useState(false);
-  const [lastResult, setLastResult] = useState<{ correct: boolean } | null>(null);
+  const [draftDecision, setDraftDecision] = useState<Decision | null>(null);
+  const [draftConfidence, setDraftConfidence] = useState<number | null>(null);
+  const [lastResult, setLastResult] = useState<{ correct: boolean; newCard: boolean } | null>(null);
+  const [practice, setPractice] = useState<PracticeCheck>({ move: false, look: false, inspect: false });
+  const [practiceDoneModal, setPracticeDoneModal] = useState(false);
 
-  const scenarioId = scenarioOrder[currentIndex];
-  const scenario = getScenarioById(scenarioId);
+  const inPractice = stage === "practice";
+  const scenario = inPractice ? practiceScenario : getScenarioById(scenarioOrder[currentIndex]);
+  const isLast = currentIndex >= scenarioOrder.length - 1;
 
-  // 離脱（タブを閉じる/バックグラウンド化）時のベストエフォート保存
-  useEffect(() => registerDropoutSave(), []);
-  useEffect(() => markPhase("gameStart"), [markPhase]);
-  // 各シナリオ開始で時刻・per-scenario状態をリセット
+  // 本編の各シナリオ開始で時刻・per-scenario 状態をリセット
   useEffect(() => {
+    if (stage !== "main") return;
+    markPhase("gameStart");
     markScenarioStart();
-  }, [currentIndex, markScenarioStart]);
+    setDraftDecision(null);
+    setDraftConfidence(null);
+  }, [stage, currentIndex, markScenarioStart, markPhase]);
+
+  const onActivity = useCallback((kind: "move" | "look") => {
+    setPractice((p) => (p[kind] ? p : { ...p, [kind]: true }));
+  }, []);
 
   const handleInspect = (id: string) => {
+    if (inspectedId || showJudge || lastResult) return;
+    setInspectedId(id);
+    if (inPractice) {
+      setPractice((p) => (p.inspect ? p : { ...p, inspect: true }));
+      return;
+    }
     if (phase !== "exploring" && phase !== "investigating") return;
     recordInspect(id);
-    setInspectedId(id);
     setPhase("investigating");
     startTimer(); // シナリオ内で最初の調査時のみ計測開始（store側でガード）
   };
 
-  // 調査パネルを閉じたら探索に戻す（もう一方のオブジェクトも調べられる）
+  // 調査パネルを閉じたら探索に戻す（他のオブジェクトも調べられる）
   const handleCloseInspect = () => {
-    closeInspect();
     setInspectedId(null);
+    if (inPractice) return;
+    closeInspect();
     setPhase("exploring");
   };
 
   // 関連オブジェクトの数を悟らせないため、確認ダイアログや件数表示は出さない
   const openJudge = () => {
-    markJudgeOpen(); // 判定UI表示時刻を記録
+    if (inPractice) {
+      setPracticeDoneModal(true);
+      return;
+    }
+    markJudgeOpen();
     setShowJudge(true);
     setPhase("judging");
   };
 
-  const handleSubmit = (confidence: number, decision: "report" | "ignore") => {
+  // 判定画面から探索に戻って調べ直す（答え・確信度・ヒントは保持）
+  const backToExplore = () => {
+    setShowJudge(false);
+    setPhase("exploring");
+  };
+
+  const handleSubmit = () => {
+    if (!draftDecision || draftConfidence == null) return;
     const correct =
-      (decision === "report" && scenario.isFraud) ||
-      (decision === "ignore" && !scenario.isFraud);
-    submitDecision(decision, confidence, correct, scenario.isFraud);
-    setLastResult({ correct });
+      (draftDecision === "report" && scenario.isFraud) || (draftDecision === "ignore" && !scenario.isFraud);
+    submitDecision(draftDecision, draftConfidence, correct, scenario.isFraud);
+    const newCard = correct ? addToCollection(scenarioCardId(scenario.id)) : false;
+    setLastResult({ correct, newCard });
     setShowJudge(false);
     setPhase("feedback");
     void saveSnapshot(); // シナリオ完了ごとに逐次保存
@@ -66,17 +108,57 @@ export default function GameClient() {
   const handleNext = () => {
     setLastResult(null);
     setInspectedId(null);
-    const isLast = currentIndex >= scenarioOrder.length - 1;
-    nextScenario();
+    if (isLast) markPhase("gameEnd");
+    nextScenario(); // 最後なら phase=transfer_test
     if (isLast) {
-      markPhase("gameEnd");
-      router.push("/result");
-    } else {
-      setPhase("exploring");
+      void saveSnapshot();
+      setStage("outro");
     }
   };
 
+  const startPractice = () => {
+    markPhase("practiceStart");
+    setPhase("practice");
+    setStage("practice");
+  };
+
+  const finishPractice = () => {
+    markPhase("practiceEnd");
+    completePractice();
+    setPracticeDoneModal(false);
+    setInspectedId(null);
+    setPhase("exploring");
+    setStage("main");
+  };
+
+  // ─── 区切り画面 ───
+  if (stage === "intro") {
+    return (
+      <StageScreen step="STEP 2 / 3" emoji="🏠" title="ゲーム本編" buttonLabel="操作の練習へ →" onNext={startPractice}>
+        <p>あなたは部屋にいる探偵です。スマホに届いた通知の中に <b>詐欺</b> がまぎれていないか、部屋にある情報（カレンダー・メモ・ポスター）と見比べて見破ろう。</p>
+        <p>全{scenarioOrder.length}問。まずは30秒ほど、操作の練習をします。</p>
+        <p className="text-gray-400 text-xs">📱 スマホは横向きでプレイしてください。</p>
+      </StageScreen>
+    );
+  }
+  if (stage === "outro") {
+    return (
+      <StageScreen
+        step="STEP 2 / 3 クリア"
+        emoji="🏆"
+        title="ゲーム本編クリア！"
+        buttonLabel="事後テストへ →"
+        onNext={() => router.push("/result")}
+      >
+        <p>全{scenarioOrder.length}問、おつかれさまでした！ ご協力ありがとうございます。</p>
+        <p>最後に、学んだことを確かめる短いテストとアンケートがあります。結果発表はそのあと！</p>
+      </StageScreen>
+    );
+  }
+
   const inspectedObj = scenario.objects.find((o) => o.id === inspectedId);
+  const controlsEnabled = !inspectedObj && !showJudge && !lastResult && !practiceDoneModal;
+  const practiceReady = practice.move && practice.look && practice.inspect;
 
   return (
     <div className="w-full h-dvh bg-black relative overflow-hidden">
@@ -87,17 +169,16 @@ export default function GameClient() {
         <p className="text-gray-400 text-sm mt-2">このゲームは横画面でプレイします</p>
       </div>
 
-      {/* 3Dキャンバス */}
       <Canvas shadows dpr={[1, 2]} camera={{ fov: 75 }} style={{ width: "100%", height: "100%" }}>
         <Suspense fallback={null}>
-          <Room onInspect={handleInspect} />
-          <FPSControls />
+          <Room onInspect={handleInspect} scenario={scenario} />
+          <FPSControls enabled={controlsEnabled} onActivity={inPractice ? onActivity : undefined} />
         </Suspense>
         <PostFX />
       </Canvas>
 
-      {/* 進捗バー */}
-      {(phase === "exploring" || phase === "investigating") && (
+      {/* 進捗バー（本編のみ） */}
+      {!inPractice && (
         <div className="absolute top-4 left-4 w-40 pointer-events-none">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-white/70 text-xs">進捗</span>
@@ -114,45 +195,53 @@ export default function GameClient() {
         </div>
       )}
 
+      {/* 操作練習のチェックリスト */}
+      {inPractice && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 bg-black/70 backdrop-blur rounded-2xl px-4 py-2 text-white text-xs pointer-events-none">
+          <p className="font-bold text-center mb-1">🎮 操作練習（記録されません）</p>
+          <div className="flex gap-3">
+            <span className={practice.move ? "text-green-400" : ""}>{practice.move ? "✅" : "⬜"} 移動（左スティック / WASD）</span>
+            <span className={practice.look ? "text-green-400" : ""}>{practice.look ? "✅" : "⬜"} 見回す（右スティック / ドラッグ）</span>
+            <span className={practice.inspect ? "text-green-400" : ""}>{practice.inspect ? "✅" : "⬜"} 🔍ラベルをタップして調べる</span>
+          </div>
+        </div>
+      )}
+
       {/* クロスヘア */}
-      {phase === "exploring" && (
+      {controlsEnabled && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="w-4 h-4 border-2 border-white rounded-full opacity-60" />
         </div>
       )}
 
-      {/* 探索ガイド（まだ何も調べていないとき） */}
-      {phase === "exploring" && currentInspected.length === 0 && (
+      {/* 探索ガイド（本編でまだ何も調べていないとき） */}
+      {!inPractice && phase === "exploring" && currentInspected.length === 0 && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-xs text-center pointer-events-none px-4">
           左スティックで移動 ・ 右スティックで見回す<br />
           （PC: WASDで移動・ドラッグで視点） 近づいてタップで調べる
         </div>
       )}
 
-      {/* 判定ボタン（1つ以上調べたら表示） */}
-      {phase === "exploring" && currentInspected.length >= 1 && (
-        <button
-          onClick={openJudge}
-          className="absolute bottom-5 left-1/2 -translate-x-1/2 z-40 px-6 py-3 bg-blue-600 text-white font-bold rounded-full shadow-lg pointer-events-auto"
-        >
-          ⚖️ 判定する
-        </button>
-      )}
+      {/* 判定ボタン：本編は1つ以上調べたら、練習は3項目クリアで表示 */}
+      {controlsEnabled &&
+        ((inPractice && practiceReady) || (!inPractice && phase === "exploring" && currentInspected.length >= 1)) && (
+          <button
+            onClick={openJudge}
+            className={`absolute bottom-5 left-1/2 -translate-x-1/2 z-40 px-6 py-3 bg-blue-600 text-white font-bold rounded-full shadow-lg pointer-events-auto ${
+              inPractice ? "animate-bounce" : ""
+            }`}
+          >
+            ⚖️ 判定する
+          </button>
+        )}
 
       {/* 移動ジョイスティックゾーン（左下） */}
-      <div
-        id="joystick-zone"
-        className="absolute bottom-0 left-0 w-1/3 h-1/2 pointer-events-auto z-30"
-      />
-
+      <div id="joystick-zone" className="absolute bottom-0 left-0 w-1/3 h-1/2 pointer-events-auto z-30" />
       {/* 視点ジョイスティックゾーン（右下） */}
-      <div
-        id="look-zone"
-        className="absolute bottom-0 right-0 w-1/3 h-1/2 pointer-events-auto z-30"
-      />
+      <div id="look-zone" className="absolute bottom-0 right-0 w-1/3 h-1/2 pointer-events-auto z-30" />
 
       {/* 調査パネル */}
-      {inspectedObj && phase === "investigating" && (
+      {inspectedObj && (
         <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-40 p-4">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm max-h-[90dvh] overflow-y-auto">
             <h3 className="font-bold text-lg mb-3">
@@ -181,20 +270,39 @@ export default function GameClient() {
                 ))}
               </div>
             )}
-            <button
-              onClick={handleCloseInspect}
-              className="w-full py-2 bg-gray-800 text-white rounded-xl text-sm font-bold"
-            >
+            <button onClick={handleCloseInspect} className="w-full py-2 bg-gray-800 text-white rounded-xl text-sm font-bold">
               確認した（閉じる）
             </button>
           </div>
         </div>
       )}
 
-      {/* 判定UI */}
+      {/* 練習完了 */}
+      {practiceDoneModal && (
+        <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm text-center">
+            <div className="text-5xl mb-2">👍</div>
+            <h3 className="text-lg font-bold mb-2">操作はバッチリ！</h3>
+            <p className="text-sm text-gray-600 mb-5">
+              本番では、判定画面で「詐欺あり／なし」と自信の度合いを選びます。<br />
+              迷ったら「もう一度調べる」で部屋に戻れます。
+            </p>
+            <button onClick={finishPractice} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold">
+              本番スタート →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 判定UI（本編） */}
       {showJudge && phase === "judging" && (
         <ConfidenceSlider
+          decision={draftDecision}
+          confidence={draftConfidence}
+          onDecision={setDraftDecision}
+          onConfidence={setDraftConfidence}
           onSubmit={handleSubmit}
+          onBack={backToExplore}
           hint={scenario.hint}
           hintUsed={hintUsed}
           onUseHint={useHint}
@@ -208,6 +316,8 @@ export default function GameClient() {
           title={scenario.title}
           explanation={scenario.explanation}
           learningPoint={scenario.learningPoint}
+          newCard={lastResult.newCard}
+          isLast={isLast}
           onNext={handleNext}
         />
       )}

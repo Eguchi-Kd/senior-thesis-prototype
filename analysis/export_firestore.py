@@ -42,7 +42,8 @@ def g(d, key, default=""):
     return default if v is None else v
 
 
-PHASES = ["consent", "intakeEnd", "pretestStart", "pretestEnd", "gameStart", "gameEnd", "posttestEnd", "surveyEnd"]
+PHASES = ["consent", "intakeEnd", "pretestStart", "pretestEnd", "practiceStart", "practiceEnd",
+          "gameStart", "gameEnd", "posttestStart", "posttestEnd", "surveyEnd"]
 
 
 def sus_score(sus):
@@ -80,7 +81,14 @@ def flatten_sessions(docs, include_test):
             "phase": d.get("phase", ""),
             "dropoutPhase": d.get("dropoutPhase", ""),
             "testRun": test_run,
+            "schemaVersion": d.get("schemaVersion", 1),
+            "contentVersion": d.get("contentVersion", ""),
             "priorPlays": d.get("priorPlays", ""),
+            "resumeCount": d.get("resumeCount", ""),
+            "hiddenCount": d.get("hiddenCount", ""),
+            "hiddenTotalMs": d.get("hiddenTotalMs", ""),
+            "lastHiddenPhase": d.get("lastHiddenPhase", ""),
+            "resultType": d.get("resultType", ""),
             "preForm": g(forms, "pre"),
             "postForm": g(forms, "post"),
             "deviceInfo_ua": g(dev, "ua"),
@@ -123,6 +131,10 @@ def flatten_sessions(docs, include_test):
                 "reactionTimeMs": lg.get("reactionTimeMs", ""),
                 "explorationTimeMs": lg.get("explorationTimeMs", ""),
                 "decisionLatencyMs": lg.get("decisionLatencyMs", ""),
+                "finalJudgeLatencyMs": g(lg, "finalJudgeLatencyMs"),
+                "judgeOpenCount": g(lg, "judgeOpenCount"),
+                "hiddenMs": g(lg, "hiddenMs"),
+                "restarted": g(lg, "restarted"),
                 "decision": lg.get("decision", ""),
                 "confidence": lg.get("confidence", ""),
                 "hintUsed": lg.get("hintUsed", ""),
@@ -157,6 +169,7 @@ def flatten_sessions(docs, include_test):
                     "correct": t.get("correct", ""),
                     "confidence": t.get("confidence", ""),
                     "reactionTimeMs": t.get("reactionTimeMs", ""),
+                    "hiddenMs": t.get("hiddenMs", ""),
                     "signalType": t.get("signalType", ""),
                 })
     return sessions, trials, tests

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useGameStore } from "@/store/gameStore";
 
 const PLAY_COUNT_KEY = "scamDetective.playCount";
@@ -74,6 +75,13 @@ export default function TitlePage() {
         >
           ゲームをはじめる →
         </motion.button>
+
+        <Link
+          href="/collection"
+          className="block w-full py-3 mt-3 text-center bg-gray-800 text-gray-200 text-sm font-bold rounded-2xl"
+        >
+          📇 学習カード コレクション
+        </Link>
 
         {showDev && (
           <button

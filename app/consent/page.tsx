@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
@@ -10,7 +10,10 @@ export default function ConsentPage() {
   const router = useRouter();
   const setConsent = useGameStore((s) => s.setConsent);
   const markPhase = useGameStore((s) => s.markPhase);
+  const setPhase = useGameStore((s) => s.setPhase);
   const [agreed, setAgreed] = useState(false);
+
+  useEffect(() => setPhase("consent"), [setPhase]);
 
   const handleNext = () => {
     if (!agreed) return;

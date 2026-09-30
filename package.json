@@ -23,6 +23,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
     "@tailwindcss/postcss": "^4",
     "@types/howler": "^2.2.13",
     "@types/node": "^20",

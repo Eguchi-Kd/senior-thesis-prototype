@@ -5,13 +5,29 @@ import { useThree, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import nipplejs from "nipplejs";
 
-const MOVE_SPEED = 0.05;
-const LOOK_RATE = 0.03;          // 右スティックの毎フレーム回転量（押し続けで回転）
-const MOUSE_SENSITIVITY = 0.003; // PC: ドラッグ量あたりの回転量
+// 速度は「秒あたり」で定義し、経過時間(delta)を掛けて端末のFPS差をなくす（従来の60fps時と同じ体感）
+const MOVE_SPEED = 3.0;          // m/秒
+const LOOK_RATE = 1.8;           // 右スティック最大倒しでの回転 rad/秒
+const MOUSE_SENSITIVITY = 0.003; // PC: ドラッグ量(px)あたりの回転量
 const PLAYER_HEIGHT = 1.6;
 const PITCH_LIMIT = Math.PI / 3; // 上下視点の可動域 ±60°
+const MAX_DELTA = 0.1;           // タブ復帰直後などの大きな飛びを防ぐ
+const LIMIT_X = 1.5;             // 部屋の内寸に合わせた移動境界（壁抜け防止）
+const LIMIT_Z = 2.3;
 
-export function FPSControls() {
+const forward = new THREE.Vector3();
+const right = new THREE.Vector3();
+
+// enabled=false（調査パネル・判定画面などを開いている間）は入力を捨てて移動・旋回しない
+// onActivity：初めて移動/見回しをしたときに一度だけ通知（操作練習のチェック用）
+export function FPSControls({
+  enabled = true,
+  onActivity,
+}: {
+  enabled?: boolean;
+  onActivity?: (kind: "move" | "look") => void;
+}) {
+  const reported = useRef({ move: false, look: false });
   const { camera, gl } = useThree();
   const moveDir = useRef({ x: 0, y: 0 });      // 左スティック / WASD（保持）
   const lookVec = useRef({ x: 0, y: 0 });      // 右スティック（保持・レート制御）
@@ -107,7 +123,22 @@ export function FPSControls() {
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
 
+    // ウィンドウが非アクティブになったら押しっぱなし状態を解除（keyup を取りこぼして動き続けるのを防ぐ）
+    const resetInput = () => {
+      moveDir.current = { x: 0, y: 0 };
+      lookVec.current = { x: 0, y: 0 };
+      mouseDelta.current = { x: 0, y: 0 };
+      drag.active = false;
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") resetInput();
+    };
+    window.addEventListener("blur", resetInput);
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
+      window.removeEventListener("blur", resetInput);
+      document.removeEventListener("visibilitychange", onVisibility);
       moveStickRef.current?.destroy();
       lookStickRef.current?.destroy();
       dom.removeEventListener("mousedown", onMouseDown);
@@ -118,14 +149,20 @@ export function FPSControls() {
     };
   }, [camera, gl]);
 
-  useFrame(() => {
+  useFrame((_, rawDelta) => {
+    if (!enabled) {
+      mouseDelta.current = { x: 0, y: 0 };
+      return;
+    }
+    const dt = Math.min(rawDelta, MAX_DELTA);
+
     // ─── 視点：右スティック（レート）＋ PCマウスドラッグ（差分） ───
     let yawDelta = 0;
     let pitchDelta = 0;
 
     if (lookVec.current.x !== 0 || lookVec.current.y !== 0) {
-      yawDelta += lookVec.current.x * LOOK_RATE;
-      pitchDelta += lookVec.current.y * LOOK_RATE; // スティック上倒し = 上を向く
+      yawDelta += lookVec.current.x * LOOK_RATE * dt;
+      pitchDelta += lookVec.current.y * LOOK_RATE * dt; // スティック上倒し = 上を向く
     }
     if (mouseDelta.current.x !== 0 || mouseDelta.current.y !== 0) {
       yawDelta += mouseDelta.current.x * MOUSE_SENSITIVITY;
@@ -137,20 +174,25 @@ export function FPSControls() {
       camera.rotation.y -= yawDelta;
       pitchRef.current = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitchRef.current + pitchDelta));
       camera.rotation.x = pitchRef.current;
+      if (!reported.current.look && onActivity) {
+        reported.current.look = true;
+        onActivity("look");
+      }
     }
 
     // ─── 移動：左スティック / WASD ───
     const { x: mx, y: my } = moveDir.current;
     if (mx !== 0 || my !== 0) {
-      const forward = new THREE.Vector3(-Math.sin(camera.rotation.y), 0, -Math.cos(camera.rotation.y));
-      const right = new THREE.Vector3(Math.cos(camera.rotation.y), 0, -Math.sin(camera.rotation.y));
-      camera.position.addScaledVector(forward, my * MOVE_SPEED);
-      camera.position.addScaledVector(right, mx * MOVE_SPEED);
+      forward.set(-Math.sin(camera.rotation.y), 0, -Math.cos(camera.rotation.y));
+      right.set(Math.cos(camera.rotation.y), 0, -Math.sin(camera.rotation.y));
+      camera.position.addScaledVector(forward, my * MOVE_SPEED * dt);
+      camera.position.addScaledVector(right, mx * MOVE_SPEED * dt);
       camera.position.y = PLAYER_HEIGHT;
+      if (!reported.current.move && onActivity) {
+        reported.current.move = true;
+        onActivity("move");
+      }
 
-      // 部屋の内寸に合わせた移動境界（壁抜け防止）
-      const LIMIT_X = 1.5;
-      const LIMIT_Z = 2.3;
       camera.position.x = Math.max(-LIMIT_X, Math.min(LIMIT_X, camera.position.x));
       camera.position.z = Math.max(-LIMIT_Z, Math.min(LIMIT_Z, camera.position.z));
     }

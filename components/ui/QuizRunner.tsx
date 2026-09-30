@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import type { TestQuestion } from "@/lib/transferTest";
 import type { TestForm } from "@/lib/testForms";
 import type { Difficulty } from "@/scenarios/types";
-import { shuffle } from "@/lib/shuffle";
-import { LikertButtons } from "./LikertButtons";
+import { useGameStore } from "@/store/gameStore";
 
 export interface QuizResult {
   questionId: string;
@@ -18,39 +17,54 @@ export interface QuizResult {
   correct: boolean;
   confidence: number;
   reactionTimeMs: number;
+  hiddenMs: number;
 }
 
-const confidenceLabels = ["全くわからない", "あまり確信なし", "やや確信あり", "かなり確信あり", "完全に確信"];
+const CONFIDENCE = ["全くわからない", "あまり自信なし", "やや自信あり", "かなり自信あり", "完全に自信あり"];
 
-// 事前テスト・転移テスト共通の出題ランナー。出題順をシャッフルし、1問ごとにRTと確信度を計測する。
+// 事前・事後テスト共通の出題ランナー。
+// 出題順は呼び出し側（ストア）で固定し、再読み込み時は startIndex から続ける。
+// 正誤はここでは見せない（テストで答えを知ると学習効果の測定が崩れるため。答え合わせはリザルトでまとめて）。
+// 答えを選ぶ → 確信度をタップした時点で回答確定・次の問題へ（タップ数を減らして飽きにくくする）。
 export function QuizRunner({
   questions,
+  startIndex = 0,
   form,
   headerLabel,
   onSubmitOne,
   onComplete,
 }: {
   questions: TestQuestion[];
+  startIndex?: number;
   form: TestForm;
   headerLabel: string;
   onSubmitOne: (r: QuizResult) => void;
   onComplete: () => void;
 }) {
-  const [order] = useState(() => shuffle(questions));
-  const [currentQ, setCurrentQ] = useState(0);
-  const [confidence, setConfidence] = useState<number | null>(null);
+  const [currentQ, setCurrentQ] = useState(startIndex);
   const [answer, setAnswer] = useState<"fraud" | "safe" | null>(null);
-  const startRef = useRef<number>(0);
+  const [locked, setLocked] = useState(false);
+  const startRef = useRef(0);
+  const hiddenStartRef = useRef(0);
 
-  // 各問の表示開始でRT計測をリセット
+  // 各問の表示開始でRTと非表示時間の計測をリセット
   useEffect(() => {
     startRef.current = performance.now();
+    hiddenStartRef.current = useGameStore.getState().hiddenTotalMs;
   }, [currentQ]);
 
-  const question = order[currentQ];
+  // 全問回答済みで開かれた（再読み込み等）場合はそのまま完了へ
+  useEffect(() => {
+    if (startIndex >= questions.length) onComplete();
+  }, [startIndex, questions.length, onComplete]);
 
-  const handleSubmit = () => {
-    if (!answer || confidence == null) return;
+  if (currentQ >= questions.length) return null;
+  const question = questions[currentQ];
+  const remaining = questions.length - currentQ - 1;
+
+  const submit = (confidence: number) => {
+    if (!answer || locked) return;
+    setLocked(true);
     onSubmitOne({
       questionId: question.id,
       form,
@@ -61,90 +75,120 @@ export function QuizRunner({
       correct: (answer === "fraud") === question.isFraud,
       confidence,
       reactionTimeMs: Math.round(performance.now() - startRef.current),
+      hiddenMs: useGameStore.getState().hiddenTotalMs - hiddenStartRef.current,
     });
-    if (currentQ < order.length - 1) {
-      setCurrentQ((q) => q + 1);
-      setAnswer(null);
-      setConfidence(null);
-    } else {
-      onComplete();
-    }
+    // 選んだ確信度が一瞬見えてから次へ
+    setTimeout(() => {
+      if (currentQ < questions.length - 1) {
+        setCurrentQ((q) => q + 1);
+        setAnswer(null);
+        setLocked(false);
+      } else {
+        onComplete();
+      }
+    }, 250);
   };
 
   return (
-    <div className="min-h-dvh bg-gray-950 flex flex-col items-center justify-center px-4 py-8">
+    <div className="min-h-dvh bg-gray-950 flex flex-col items-center justify-center px-4 py-6">
       <div className="w-full max-w-md">
-        <div className="text-center mb-6">
-          <p className="text-gray-400 text-sm mb-1">{headerLabel}</p>
-          <h1 className="text-white text-xl font-black">
-            問 {currentQ + 1} / {order.length}
-          </h1>
-          <div className="flex gap-1 mt-3 justify-center">
-            {order.map((_, i) => (
+        <div className="text-center mb-4">
+          <p className="text-gray-400 text-xs mb-1">{headerLabel}</p>
+          <div className="flex gap-1.5 justify-center mb-2">
+            {questions.map((_, i) => (
               <div
                 key={i}
-                className={`h-1.5 w-10 rounded-full ${i <= currentQ ? "bg-blue-500" : "bg-gray-700"}`}
+                className={`h-1.5 w-8 rounded-full transition-colors ${
+                  i < currentQ ? "bg-blue-500" : i === currentQ ? "bg-blue-300" : "bg-gray-700"
+                }`}
               />
             ))}
           </div>
+          <p className="text-white text-sm font-bold">
+            問 {currentQ + 1} / {questions.length}
+            <span className="text-gray-400 font-normal ml-2">
+              {remaining > 0 ? `あと ${remaining} 問！` : "ラスト1問！"}
+            </span>
+          </p>
         </div>
 
-        <motion.div
-          key={currentQ}
-          initial={{ opacity: 0, x: 30 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="bg-white rounded-2xl p-5 mb-4"
-        >
-          <p className="text-xs font-bold text-blue-600 mb-2 uppercase tracking-wide">{question.title}</p>
-          <p className="text-gray-800 text-sm leading-relaxed">{question.scenario}</p>
-          {question.details && (
-            <div className="bg-gray-100 rounded-xl p-3 mt-3 text-xs space-y-1">
-              {question.details.senderAddress && (
-                <p className="text-gray-500 font-mono break-all">送信元：<span className="text-gray-800">{question.details.senderAddress}</span></p>
-              )}
-              {question.details.url && (
-                <p className="text-gray-500 font-mono break-all">リンク先：<span className="text-blue-700">{question.details.url}</span></p>
-              )}
-              {question.details.date && (
-                <p className="text-gray-500">日付：<span className="text-gray-800">{question.details.date}</span></p>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentQ}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.2 }}
+          >
+            {/* 状況 */}
+            <div className="bg-gray-800 rounded-2xl p-4 mb-3">
+              <p className="text-[11px] font-bold text-blue-300 mb-1 tracking-wide">状況：{question.title}</p>
+              <p className="text-gray-100 text-sm leading-relaxed">{question.scenario}</p>
+              {question.details?.officialInfo && (
+                <p className="text-xs text-emerald-300 mt-2">📌 {question.details.officialInfo}</p>
               )}
             </div>
-          )}
-        </motion.div>
 
-        <div className="flex gap-3 mb-5">
-          <button
-            onClick={() => setAnswer("fraud")}
-            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${
-              answer === "fraud" ? "bg-red-500 text-white scale-105" : "bg-red-100 text-red-700"
-            }`}
-          >
-            🚨 詐欺だと思う
-          </button>
-          <button
-            onClick={() => setAnswer("safe")}
-            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${
-              answer === "safe" ? "bg-green-500 text-white scale-105" : "bg-green-100 text-green-700"
-            }`}
-          >
-            ✅ 正常だと思う
-          </button>
-        </div>
+            {/* スマホの通知風：手がかり（送信元・リンク・日付） */}
+            {question.details && (question.details.senderAddress || question.details.url || question.details.date) && (
+              <div className="bg-white/95 rounded-2xl p-3 mb-4 shadow-lg border border-white/40">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="w-6 h-6 rounded-md bg-blue-600 text-white text-xs flex items-center justify-center">✉</span>
+                  <span className="text-[11px] text-gray-500">届いた通知の詳細</span>
+                </div>
+                <div className="text-xs space-y-1">
+                  {question.details.senderAddress && (
+                    <p className="text-gray-500 font-mono break-all">送信元：<span className="text-gray-900">{question.details.senderAddress}</span></p>
+                  )}
+                  {question.details.url && (
+                    <p className="text-gray-500 font-mono break-all">リンク先：<span className="text-blue-700">{question.details.url}</span></p>
+                  )}
+                  {question.details.date && (
+                    <p className="text-gray-500">日付：<span className="text-gray-900">{question.details.date}</span></p>
+                  )}
+                </div>
+              </div>
+            )}
 
-        <div className="bg-gray-900 rounded-xl p-4 mb-5">
-          <p className="text-gray-400 text-xs mb-2 text-center">
-            確信度：{confidence != null ? confidenceLabels[confidence - 1] : "選んでください"}
-          </p>
-          <LikertButtons value={confidence} onChange={setConfidence} minLabel="全くわからない" maxLabel="完全に確信" dark />
-        </div>
+            <div className="flex gap-3 mb-4">
+              <button
+                onClick={() => !locked && setAnswer("fraud")}
+                className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${
+                  answer === "fraud" ? "bg-red-500 text-white scale-105" : "bg-red-100 text-red-700"
+                }`}
+              >
+                🚨 詐欺だと思う
+              </button>
+              <button
+                onClick={() => !locked && setAnswer("safe")}
+                className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${
+                  answer === "safe" ? "bg-green-500 text-white scale-105" : "bg-green-100 text-green-700"
+                }`}
+              >
+                ✅ 正常だと思う
+              </button>
+            </div>
 
-        <button
-          disabled={!answer || confidence == null}
-          onClick={handleSubmit}
-          className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {currentQ < order.length - 1 ? "次の問題へ →" : "完了 →"}
-        </button>
+            {/* 答えを選ぶと確信度が出る。確信度のタップで回答確定 */}
+            <div className={`bg-gray-900 rounded-xl p-3 transition-opacity ${answer ? "opacity-100" : "opacity-30 pointer-events-none"}`}>
+              <p className="text-gray-300 text-xs mb-2 text-center">
+                {answer ? "どのくらい自信がある？（タップで次へ）" : "まず答えを選んでください"}
+              </p>
+              <div className="grid grid-cols-5 gap-1.5">
+                {CONFIDENCE.map((label, i) => (
+                  <button
+                    key={i}
+                    onClick={() => submit(i + 1)}
+                    className="flex flex-col items-center py-2 rounded-lg bg-gray-800 text-gray-200 active:bg-blue-600 hover:bg-gray-700"
+                  >
+                    <span className="text-sm font-bold">{i + 1}</span>
+                    <span className="text-[9px] leading-tight mt-0.5 text-gray-400">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );

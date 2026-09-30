@@ -1,11 +1,10 @@
 "use client";
 
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
-import { useGameStore } from "@/store/gameStore";
-import { getScenarioById } from "@/lib/scenarios";
+import type { Scenario } from "@/scenarios/types";
 
 const ROOM_W = 3.6; // 幅(x)
 const ROOM_H = 2.5; // 高さ(y)
@@ -56,9 +55,10 @@ function InteractableObject({
   const { camera } = useThree();
   const shape = getObjectShape(obj.id);
   const [px, py, pz] = obj.position;
+  const anchor = useMemo(() => new THREE.Vector3(px, py, pz), [px, py, pz]);
 
   useFrame(() => {
-    const dist = camera.position.distanceTo(new THREE.Vector3(px, py, pz));
+    const dist = camera.position.distanceTo(anchor);
     if (bodyRef.current) {
       const mat = bodyRef.current.material as THREE.MeshStandardMaterial;
       mat.emissiveIntensity = dist < 2.5 ? Math.max(0, (2.5 - dist) * 0.35) : 0;
@@ -194,10 +194,7 @@ function InteractableObject({
 }
 
 // ─── メインルーム（在宅ワークのワンルーム／温かい生活感） ─────────────
-export function Room({ onInspect }: { onInspect: (id: string) => void }) {
-  const { scenarioOrder, currentIndex } = useGameStore();
-  const scenario = getScenarioById(scenarioOrder[currentIndex]);
-
+export function Room({ onInspect, scenario }: { onInspect: (id: string) => void; scenario: Scenario }) {
   const HX = ROOM_W / 2; // 1.8
   const HZ = ROOM_D / 2; // 2.7
 

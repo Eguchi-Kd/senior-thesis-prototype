@@ -56,6 +56,6 @@ export const scenario4: Scenario = {
   ],
   isFraud: true,
   explanation:
-    "URLは『aomori-fes.ac.jp』で始まるので一見公式に見えますが、実際のドメインは末尾の『login-check.info』です（aomori-fes.ac.jp はその前に付いたサブドメインに過ぎない）。ポスターは『ログイン不要』と明記しているのにログインを要求している点も矛盾。http でもあり、貼り替えQRによる誘導詐欺です。",
-  learningPoint: "URLは『どこで始まるか』でなく『末尾のドメイン』で判断します。印刷物の案内（ログイン不要など）と食い違う要求は疑いましょう。",
+    "URLの「//」の後から最初の「/」までがホスト名で、今回は「aomori-fes.ac.jp.login-check.info」です。本当の持ち主はホスト名の右端の「login-check.info」で、先頭の「aomori-fes.ac.jp」は飾りにすぎません。ポスターの公式サイト（aomori-fes.ac.jp）と一致せず、ポスターには「ログイン不要」とあるのにログインを求めている点も食い違います。貼り替えられたQRコードによるフィッシングと判断できます。",
+  learningPoint: "URLの持ち主は、ホスト名（「//」の後から最初の「/」まで）の右端で確かめます。QRコードを読んだら、開く前にURLをポスターなどの公式情報と見比べ、食い違えば公式サイトを自分で検索して開きましょう。",
 };
