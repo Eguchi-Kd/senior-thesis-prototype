@@ -59,8 +59,8 @@ function median(xs: number[]): number {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
 
-// 初回調査→決定の時間から、画面が非表示だった時間（アプリ切替など）を除く
-const activeRt = (l: ScenarioLog) => Math.max(0, l.reactionTimeMs - (l.hiddenMs ?? 0));
+// 初回調査→決定の時間から、同じ区間で画面が非表示だった時間（アプリ切替など）を除く（診断・表示用。研究分析には使わない）
+const activeRt = (l: ScenarioLog) => Math.max(0, l.reactionTimeMs - (l.hiddenAfterFirstInspectMs ?? 0));
 
 // ゲーム本編のログからタイプを判定（上から順に当てはまるものを採用）
 export function diagnosePlayerType(logs: ScenarioLog[]): PlayerTypeId {

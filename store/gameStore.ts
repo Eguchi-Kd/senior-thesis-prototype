@@ -5,6 +5,7 @@ import type { Difficulty } from "@/scenarios/types";
 import { drawTestForms, testForms as formQuestions, type TestForm } from "@/lib/testForms";
 import { shuffle } from "@/lib/shuffle";
 import { SCHEMA_VERSION, CONTENT_VERSION } from "@/lib/version";
+import { resolveTestMode } from "@/lib/testMode";
 
 export type Decision = "report" | "ignore";
 export type Answer = "fraud" | "safe";
@@ -61,6 +62,7 @@ export interface ScenarioLog {
   viewedAllRelevant: boolean; // 判定に必要なオブジェクトをすべて調べたか
   distractorsInspected: number; // 調べたダミーオブジェクトの数
   hiddenMs: number; // このシナリオ中に画面が非表示だった時間（RTから除外する判断用）
+  hiddenAfterFirstInspectMs: number; // 初回調査以降に非表示だった時間（reactionTimeMs と同じ区間）
   restarted: boolean; // 再読み込みでこのシナリオをやり直したか
 }
 
@@ -138,6 +140,7 @@ interface GameState {
   judgeOpenCount: number;
   rtLocked: boolean;
   scenarioHiddenStart: number; // シナリオ開始時点の hiddenTotalMs
+  inspectHiddenStart: number | null; // 初回調査時点の hiddenTotalMs
   scenarioRestarted: boolean;
   hintUsed: boolean;
   hintAtMs: number | null;
@@ -201,12 +204,8 @@ const captureDeviceInfo = (): DeviceInfo | null => {
   };
 };
 
-// ?test=1 付き、または開発サーバー（next dev）での実行はテストとして記録し、分析時に除外できるようにする
-const isTestRun = () => {
-  if (process.env.NODE_ENV === "development") return true;
-  if (typeof window === "undefined") return false;
-  return new URLSearchParams(window.location.search).get("test") === "1";
-};
+// 開発サーバー、?test=1、または端末に保存されたテストモード（解除するまで維持）はテストとして記録する
+const isTestRun = () => resolveTestMode();
 
 // 関連オブジェクトの網羅とダミーへの寄り道を算出（探索プロセスの分析用）
 function computeRelevance(scenarioId: number, inspected: string[]) {
@@ -224,6 +223,7 @@ const toTestLog = (log: Omit<TestLog, "signalType" | "restarted">, restarted: bo
 });
 
 const perScenarioReset = () => ({
+  inspectHiddenStart: null as number | null,
   scenarioStartTime: null as number | null,
   firstInspectTime: null as number | null,
   judgeOpenTime: null as number | null,
@@ -322,7 +322,7 @@ export const useGameStore = create<GameState>()(
       // rtLocked が立っている間は再スタートしない（再タップでRTが歪むのを防ぐ）
       startTimer: () => {
         if (get().rtLocked) return;
-        set({ firstInspectTime: performance.now(), rtLocked: true });
+        set({ firstInspectTime: performance.now(), rtLocked: true, inspectHiddenStart: get().hiddenTotalMs });
       },
 
       // 各シナリオ開始時に時刻と per-scenario 状態をリセット
@@ -419,6 +419,7 @@ export const useGameStore = create<GameState>()(
           inspectEvents: s.currentInspectEvents,
           ...computeRelevance(scenarioId, s.currentInspected),
           hiddenMs: s.hiddenTotalMs - s.scenarioHiddenStart,
+          hiddenAfterFirstInspectMs: s.inspectHiddenStart != null ? s.hiddenTotalMs - s.inspectHiddenStart : 0,
           restarted: s.scenarioRestarted,
         };
         set({ logs: [...s.logs, log], scenarioRestarted: false });

@@ -61,9 +61,11 @@ export default function ResultClient() {
     else if (!gameDone) router.replace("/game");
   }, [logs, gameDone, router]);
 
+  // 本編が終わっていない（直行ガードで /game に戻す）間は段階を変えない
   useEffect(() => {
+    if (!gameDone) return;
     setPhase(screen === "score" ? "result" : screen === "survey" ? "survey" : "transfer_test");
-  }, [screen, setPhase]);
+  }, [screen, setPhase, gameDone]);
 
   // 自由プレイの完了処理（テスト・アンケートがないので結果発表に来た時点で完了）
   useEffect(() => {
@@ -307,8 +309,11 @@ function ScoreScreen({
     const eligible = !s.testRun && s.playMode === "research";
     if (eligible && (s.statsState === "none" || s.statsState === "failed")) {
       s.setStatsState("pending");
+      const sentFor = s.sessionId;
       void submitStats(gameCorrect, postCorrect, resultType).then(async (ok) => {
-        useGameStore.getState().setStatsState(ok ? "done" : "failed");
+        // 送信中に次の参加者のセッションへ切り替わっていたら、その状態は書き換えない
+        const now = useGameStore.getState();
+        if (now.sessionId === sentFor) now.setStatsState(ok ? "done" : "failed");
         if (ok) {
           const st = await fetchStats();
           if (alive) setStats(st);

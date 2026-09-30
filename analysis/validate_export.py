@@ -29,7 +29,8 @@ HIDDEN_WARN_MS = 30 * 1000  # 30秒以上の非表示はRT解釈に注意
 
 
 REQUIRED = {
-    "sessions.csv": ["sessionId", "completed", "schemaVersion", "contentVersion", "preForm", "postForm", "susScore"],
+    "sessions.csv": ["sessionId", "completed", "schemaVersion", "contentVersion", "preForm", "postForm", "susScore",
+                     "playMode", "consent_agreed"],
     "trials.csv": ["sessionId", "scenarioId", "isFraud", "decision", "correct", "signalType", "confidence",
                    "reactionTimeMs", "inspectedIds", "inspectEvents", "hintUsed", "hintAtMs"],
     "tests.csv": ["sessionId", "phase", "form", "position", "questionId", "isFraud", "answer", "correct",
@@ -82,17 +83,13 @@ def expected_signal(is_fraud, decision_is_report):
     return "fa" if decision_is_report else "cr"
 
 
-def main(outdir, allow_empty=False):
+def check(outdir, allow_empty=False):
+    """検証して (issues, counts) を返す。入力自体が読めない場合は FatalInput。select_sample.py からも使う"""
     if not os.path.isdir(outdir):
-        print(f"[ERROR] フォルダがありません: {outdir}")
-        return 1
-    try:
-        sessions = read(outdir, "sessions.csv")
-        trials = read(outdir, "trials.csv")
-        tests = read(outdir, "tests.csv")
-    except FatalInput as e:
-        print(f"[ERROR] {e}")
-        return 1
+        raise FatalInput(f"フォルダがありません: {outdir}")
+    sessions = read(outdir, "sessions.csv")
+    trials = read(outdir, "trials.csv")
+    tests = read(outdir, "tests.csv")
     issues = []  # (level, sessionId, message)
 
     def add(level, sid, msg):
@@ -118,6 +115,13 @@ def main(outdir, allow_empty=False):
     for s in sessions:
         sid = s["sessionId"]
         completed = b(s.get("completed"))
+        # ─ 区分・同意
+        if s.get("playMode") not in ("research", "free"):
+            add("ERROR", sid, f"playMode が不正: {s.get('playMode')!r}")
+        if not b(s.get("consent_agreed")):
+            add("ERROR", sid, "同意（consent_agreed）がない。研究分析に使えない")
+        elif not s.get("consent_timestamp"):
+            add("WARN", sid, "同意の時刻が記録されていない")
         free = s.get("playMode") == "free"  # 自由プレイは事前/事後テスト・アンケートなし（研究用データと分けて扱う）
         versions.add((s.get("schemaVersion", ""), s.get("contentVersion", "")))
         seen = [v for v in s.get("contentVersionsSeen", "").split("|") if v]
@@ -145,6 +149,14 @@ def main(outdir, allow_empty=False):
                 add("ERROR", sid, "SUSに欠損あり")
             if s.get("susScore", "") == "":
                 add("ERROR", sid, "susScoreが計算できない")
+            # 1〜5の整数で答える項目（UIは制約しているが、収集後の品質確認として検査する）
+            likert = {f"sus{i}": s.get(f"sus{i}") for i in range(1, N_SUS + 1)}
+            likert.update({k: s.get(k) for k in ("selfEfficacyPre", "selfEfficacyPost", "survey_learning",
+                                                  "survey_immersion", "survey_difficulty", "itConfidence")})
+            for k, v in likert.items():
+                x = num(v)
+                if x is None or x != int(x) or not (1 <= x <= 5):
+                    add("ERROR", sid, f"{k} が1〜5の整数でない: {v!r}")
             if not s.get("resultType"):
                 add("WARN", sid, "resultType（タイプ診断）が未保存")
         else:
@@ -267,10 +279,18 @@ def main(outdir, allow_empty=False):
     if len(versions) > 1:
         add("WARN", "-", f"複数の版が混在: {sorted(versions)}（版ごとに分けて分析）")
 
-    # ─ 出力
+    return issues, (len(sessions), len(trials), len(tests))
+
+
+def main(outdir, allow_empty=False):
+    try:
+        issues, (ns, nt, nq) = check(outdir, allow_empty)
+    except FatalInput as e:
+        print(f"[ERROR] {e}")
+        return 1
     n_err = sum(1 for lv, _, _ in issues if lv == "ERROR")
     n_warn = sum(1 for lv, _, _ in issues if lv == "WARN")
-    print(f"sessions={len(sessions)} trials={len(trials)} tests={len(tests)}")
+    print(f"sessions={ns} trials={nt} tests={nq}")
     for lv, sid, msg in issues:
         print(f"[{lv}] {sid}: {msg}")
     print(f"\n結果: ERROR {n_err} 件 / WARN {n_warn} 件")

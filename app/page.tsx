@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { resolveTestMode, saveTestMode } from "@/lib/testMode";
 import { useGameStore } from "@/store/gameStore";
 
 const PLAY_COUNT_KEY = "scamDetective.playCount";
@@ -26,14 +27,20 @@ export default function TitlePage() {
   const setPriorPlays = useGameStore((s) => s.setPriorPlays);
   const setPlayMode = useGameStore((s) => s.setPlayMode);
 
-  // 開発時(next dev) または ?test=1 のときだけ「3Dルーム直行」ボタンを表示する。
-  // 本番ビルドでは自動的に非表示になり、実験フロー（同意→属性→事前テスト）に影響しない。
+  // テストモード（開発時・?test=1 を開いた端末）のときだけ「3Dルーム直行」とテストモード表示を出す。
+  // ?test=1 は端末に保存され、解除するまで続く（パイロットの連続実施で本番扱いにならないように）
   const [showDev, setShowDev] = useState(false);
   useEffect(() => {
-    const isDev = process.env.NODE_ENV === "development";
-    const hasTest = new URLSearchParams(window.location.search).get("test") === "1";
-    setShowDev(isDev || hasTest);
+    const on = resolveTestMode();
+    setShowDev(on);
+    useGameStore.setState({ testRun: on });
   }, []);
+
+  const exitTestMode = () => {
+    saveTestMode(false);
+    useGameStore.setState({ testRun: process.env.NODE_ENV === "development" });
+    setShowDev(process.env.NODE_ENV === "development");
+  };
 
   // research=はじめて（研究用データ）/ free=2回目以降（自由プレイ・研究用データとは別に記録）
   const handleStart = (mode: "research" | "free") => {
@@ -95,6 +102,17 @@ export default function TitlePage() {
         >
           📇 学習カード コレクション
         </Link>
+
+        {showDev && (
+          <div className="mt-4 rounded-2xl border border-yellow-500/60 bg-yellow-500/10 px-3 py-2 text-left text-xs text-yellow-200">
+            🧪 <b>テストモード中</b>：この端末のプレイは本番データと区別して記録されます（解除するまで続きます）。
+            {process.env.NODE_ENV !== "development" && (
+              <button onClick={exitTestMode} className="ml-2 underline text-yellow-100">
+                テストモードを解除
+              </button>
+            )}
+          </div>
+        )}
 
         {showDev && (
           <button

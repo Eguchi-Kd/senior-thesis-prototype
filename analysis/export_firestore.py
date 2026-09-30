@@ -87,6 +87,7 @@ def flatten_sessions(docs, include_test, include_free=False):
         pre = d.get("preTest") or []
         post = d.get("transferTest") or []
         forms = d.get("testForms") or {}
+        consent = d.get("consent") or {}
         times = d.get("phaseTimes") or {}
 
         srow = {
@@ -98,6 +99,8 @@ def flatten_sessions(docs, include_test, include_free=False):
             "dropoutPhase": d.get("dropoutPhase", ""),
             "testRun": test_run,
             "playMode": play_mode,
+            "consent_agreed": bool(consent.get("agreed", False)),
+            "consent_timestamp": consent.get("timestamp", "") or "",
             "schemaVersion": d.get("schemaVersion", 1),
             "contentVersion": d.get("contentVersion", ""),
             "contentVersionsSeen": "|".join(d.get("contentVersionsSeen") or []),
@@ -155,6 +158,7 @@ def flatten_sessions(docs, include_test, include_free=False):
                 "finalJudgeLatencyMs": g(lg, "finalJudgeLatencyMs"),
                 "judgeOpenCount": g(lg, "judgeOpenCount"),
                 "hiddenMs": g(lg, "hiddenMs"),
+                "hiddenAfterFirstInspectMs": g(lg, "hiddenAfterFirstInspectMs"),
                 "restarted": g(lg, "restarted"),
                 "decision": lg.get("decision", ""),
                 "confidence": lg.get("confidence", ""),

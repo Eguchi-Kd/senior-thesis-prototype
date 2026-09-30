@@ -20,6 +20,8 @@ globalThis.sessionStorage = {
 };
 globalThis.window = { location: { search: "?test=1" }, innerWidth: 800, innerHeight: 400, screen: { width: 800, height: 400 } };
 globalThis.screen = globalThis.window.screen;
+const local = new Map();
+globalThis.localStorage = { getItem: (k) => (local.has(k) ? local.get(k) : null), setItem: (k, v) => local.set(k, v), removeItem: (k) => local.delete(k) };
 if (!globalThis.navigator) {
   Object.defineProperty(globalThis, "navigator", { value: { userAgent: "node-probe", maxTouchPoints: 0, language: "ja" }, configurable: true });
 }
@@ -100,6 +102,34 @@ try {
 }
 throwOnSet = false;
 check("保存領域の例外でも setPhase が例外を投げない", !threw && st().phase === "intake");
+
+// 7. テストモード：?test=1 で開始 → 結果画面（クエリなし）から再プレイしても維持 → ?test=0 で解除
+window.location.search = "?test=1";
+st().reset();
+const t1 = st().testRun;
+window.location.search = ""; // 結果画面・タイトル（クエリなし）
+st().reset();
+const t2 = st().testRun;
+window.location.search = "?test=0";
+st().reset();
+const t3 = st().testRun;
+window.location.search = "";
+st().reset();
+const t4 = st().testRun;
+check("テストモードは再プレイ後も維持され、?test=0 で解除", t1 && t2 && !t3 && !t4, `${t1},${t2},${t3},${t4}`);
+
+// 8. 初回調査以降の非表示時間は、初回調査前の非表示を含まない
+st().reset();
+st().setConsent(true);
+st().setPhase("exploring");
+st().markScenarioStart();
+useGameStore.setState({ hiddenTotalMs: st().hiddenTotalMs + 40_000 }); // 調査前に40秒非表示
+st().recordInspect("smartphone");
+st().startTimer();
+useGameStore.setState({ hiddenTotalMs: st().hiddenTotalMs + 5_000 }); // 調査後に5秒非表示
+st().submitDecision("report", 3, true, true);
+const lg = st().logs[0];
+check("初回調査以降の非表示時間だけを別に記録", lg.hiddenMs === 45_000 && lg.hiddenAfterFirstInspectMs === 5_000, `hidden=${lg.hiddenMs} afterInspect=${lg.hiddenAfterFirstInspectMs}`);
 
 console.log(failures ? `\n${failures} 件 FAIL` : "\nすべて OK");
 process.exit(failures ? 1 : 0);
