@@ -10,6 +10,7 @@ export default function ConsentPage() {
   const router = useRouter();
   const setConsent = useGameStore((s) => s.setConsent);
   const markPhase = useGameStore((s) => s.markPhase);
+  const playMode = useGameStore((s) => s.playMode);
   const setPhase = useGameStore((s) => s.setPhase);
   const [agreed, setAgreed] = useState(false);
 
@@ -20,7 +21,8 @@ export default function ConsentPage() {
     setConsent(true);
     markPhase("consent");
     void saveSnapshot();
-    router.push("/intake");
+    // 自由プレイは属性・事前テストを省いてゲームへ
+    router.push(playMode === "free" ? "/game" : "/intake");
   };
 
   return (

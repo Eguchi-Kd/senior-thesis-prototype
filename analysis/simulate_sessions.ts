@@ -23,13 +23,15 @@ const wait = (ms: number) => {
   clockMs += ms;
 };
 
-type Pattern = "careful" | "allReport" | "hintReinvestigate" | "rushed" | "reloadMidGame" | "appSwitch";
+type Pattern = "careful" | "allReport" | "hintReinvestigate" | "rushed" | "reloadMidGame" | "appSwitch" | "freePlay";
 
 function play(pattern: Pattern) {
   const st = () => useGameStore.getState();
   st().reset();
   useGameStore.setState({ testRun: true });
-  st().setPriorPlays(0);
+  st().setPriorPlays(pattern === "freePlay" ? 1 : 0);
+  if (pattern === "freePlay") st().setPlayMode("free");
+  const free = pattern === "freePlay";
 
   // 同意・属性
   wait(20_000);
@@ -37,12 +39,14 @@ function play(pattern: Pattern) {
   st().setPhase("consent");
   st().markPhase("consent");
   wait(25_000);
-  st().setPhase("intake");
-  st().setDemographics(
-    { ageGroup: "19-22", occupation: "大学・専門学生", gender: "回答しない", scamExperience: "不審な連絡を受けた", itConfidence: 3 },
-    3,
-  );
-  st().markPhase("intakeEnd");
+  if (!free) {
+    st().setPhase("intake");
+    st().setDemographics(
+      { ageGroup: "19-22", occupation: "大学・専門学生", gender: "回答しない", scamExperience: "不審な連絡を受けた", itConfidence: 3 },
+      3,
+    );
+    st().markPhase("intakeEnd");
+  }
 
   // 事前テスト（QuizRunner と同じ項目を記録）
   const runTest = (phase: "pre" | "post") => {
@@ -76,10 +80,12 @@ function play(pattern: Pattern) {
     });
   };
 
-  st().setPhase("pretest");
-  st().markPhase("pretestStart");
-  runTest("pre");
-  st().markPhase("pretestEnd");
+  if (!free) {
+    st().setPhase("pretest");
+    st().markPhase("pretestStart");
+    runTest("pre");
+    st().markPhase("pretestEnd");
+  }
 
   // 操作練習（ログに入らない）
   st().setPhase("practice");
@@ -139,6 +145,14 @@ function play(pattern: Pattern) {
   });
   st().markPhase("gameEnd");
 
+  if (free) {
+    // 自由プレイ：テスト・アンケートなしで結果発表
+    st().setResultType(diagnosePlayerType(st().logs));
+    st().markPhase("resultShown");
+    st().setPhase("result");
+    return { ...buildPayload(), completed: true, simulatedPattern: pattern };
+  }
+
   // 事後テスト
   st().setPhase("transfer_test");
   st().markPhase("posttestStart");
@@ -156,5 +170,5 @@ function play(pattern: Pattern) {
   return { ...buildPayload(), completed: true, simulatedPattern: pattern };
 }
 
-const patterns: Pattern[] = ["careful", "allReport", "hintReinvestigate", "rushed", "reloadMidGame", "appSwitch"];
+const patterns: Pattern[] = ["careful", "allReport", "hintReinvestigate", "rushed", "reloadMidGame", "appSwitch", "freePlay"];
 export const sessions = patterns.map((p) => play(p));

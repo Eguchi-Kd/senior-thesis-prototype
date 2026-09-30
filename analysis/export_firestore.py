@@ -9,7 +9,8 @@ Firestore の sessions コレクションを Admin SDK で全件取得し、分�
     pip install -r requirements.txt
     # 鍵を analysis/serviceAccountKey.json に配置（または GOOGLE_APPLICATION_CREDENTIALS を設定）
     python export_firestore.py                # testRun を除外して出力
-    python export_firestore.py --include-test # テスト実行も含める
+    python export_firestore.py --include-test # テスト実行も含める（パイロットは ?test=1 なので必須）
+    python export_firestore.py --include-free # 2回目以降の自由プレイも含める（研究用データとは別。既定は除外）
 """
 import os
 import sys
@@ -67,12 +68,15 @@ def sus_score(sus):
     return (odd + even) * 2.5
 
 
-def flatten_sessions(docs, include_test):
+def flatten_sessions(docs, include_test, include_free=False):
     sessions, trials, tests = [], [], []
     for doc in docs:
         d = doc.to_dict() or {}
         test_run = bool(d.get("testRun", False))
         if test_run and not include_test:
+            continue
+        play_mode = d.get("playMode", "research")
+        if play_mode == "free" and not include_free:
             continue
 
         dev = d.get("deviceInfo") or {}
@@ -93,6 +97,7 @@ def flatten_sessions(docs, include_test):
             "phase": d.get("phase", ""),
             "dropoutPhase": d.get("dropoutPhase", ""),
             "testRun": test_run,
+            "playMode": play_mode,
             "schemaVersion": d.get("schemaVersion", 1),
             "contentVersion": d.get("contentVersion", ""),
             "contentVersionsSeen": "|".join(d.get("contentVersionsSeen") or []),
@@ -206,6 +211,7 @@ def write_csv(path, rows):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--include-test", action="store_true", help="testRun=Trueのセッションも含める")
+    ap.add_argument("--include-free", action="store_true", help="自由プレイ（playMode=free）も含める")
     ap.add_argument("--from-json", help="Firestoreの代わりにJSON（simulate_sessions の出力など）から読み込む")
     args = ap.parse_args()
 
@@ -216,7 +222,7 @@ def main():
     else:
         db = init_client()
         docs = list(db.collection("sessions").stream())
-    sessions, trials, tests = flatten_sessions(docs, args.include_test)
+    sessions, trials, tests = flatten_sessions(docs, args.include_test, args.include_free)
 
     outdir = os.path.join(HERE, "data", "export_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
     os.makedirs(outdir, exist_ok=True)

@@ -156,7 +156,10 @@ interface GameState {
   selfEfficacyPost: number | null;
   survey: Survey | null;
   resultType: string | null;
-  statsSubmitted: boolean;
+  // 匿名集計の送信状態。pending はオフライン中でもSDKが端末に保持して再送するので、再読み込み後も再送しない（二重加算防止）
+  statsState: "none" | "pending" | "done" | "failed";
+  // research=はじめて（研究用データ） / free=2回目以降の自由プレイ（研究用データと分けて収集・テストなし）
+  playMode: "research" | "free";
 
   // actions
   setPhase: (phase: GamePhase) => void;
@@ -179,7 +182,8 @@ interface GameState {
   setDemographics: (d: Demographics, selfEfficacyPre: number) => void;
   setSurvey: (s: Survey, selfEfficacyPost: number) => void;
   setResultType: (t: string) => void;
-  markStatsSubmitted: () => void;
+  setStatsState: (st: GameState["statsState"]) => void;
+  setPlayMode: (m: GameState["playMode"]) => void;
   reset: () => void;
 }
 
@@ -273,7 +277,8 @@ const initialState = () => {
     selfEfficacyPost: null as number | null,
     survey: null as Survey | null,
     resultType: null as string | null,
-    statsSubmitted: false,
+    statsState: "none" as GameState["statsState"],
+    playMode: "research" as GameState["playMode"],
   };
 };
 
@@ -449,7 +454,9 @@ export const useGameStore = create<GameState>()(
 
       setResultType: (t) => set({ resultType: t }),
 
-      markStatsSubmitted: () => set({ statsSubmitted: true }),
+      setStatsState: (statsState) => set({ statsState }),
+
+      setPlayMode: (playMode) => set({ playMode }),
 
       reset: () => set({ ...initialState() }),
     }),

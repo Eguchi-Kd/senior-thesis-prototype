@@ -24,6 +24,7 @@ export default function TitlePage() {
   const reset = useGameStore((s) => s.reset);
   const setPhase = useGameStore((s) => s.setPhase);
   const setPriorPlays = useGameStore((s) => s.setPriorPlays);
+  const setPlayMode = useGameStore((s) => s.setPlayMode);
 
   // 開発時(next dev) または ?test=1 のときだけ「3Dルーム直行」ボタンを表示する。
   // 本番ビルドでは自動的に非表示になり、実験フロー（同意→属性→事前テスト）に影響しない。
@@ -34,9 +35,11 @@ export default function TitlePage() {
     setShowDev(isDev || hasTest);
   }, []);
 
-  const handleStart = () => {
+  // research=はじめて（研究用データ）/ free=2回目以降（自由プレイ・研究用データとは別に記録）
+  const handleStart = (mode: "research" | "free") => {
     reset(); // 新しいセッションを初期化（sessionId・提示順・計測をリセット）
     setPriorPlays(countPlay());
+    setPlayMode(mode);
     router.push("/consent");
   };
 
@@ -70,10 +73,20 @@ export default function TitlePage() {
 
         <motion.button
           whileTap={{ scale: 0.95 }}
-          onClick={handleStart}
+          onClick={() => handleStart("research")}
           className="w-full py-4 bg-blue-600 text-white text-lg font-black rounded-2xl"
         >
-          ゲームをはじめる →
+          はじめて遊ぶ →
+          <span className="block text-xs font-normal opacity-80 mt-0.5">テスト・アンケートつき（研究にご協力ください）</span>
+        </motion.button>
+
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          onClick={() => handleStart("free")}
+          className="w-full py-3 mt-3 bg-gray-700 text-white font-bold rounded-2xl"
+        >
+          2回目以降（自由プレイ）
+          <span className="block text-xs font-normal opacity-70 mt-0.5">テストなしでゲームだけ遊べます</span>
         </motion.button>
 
         <Link

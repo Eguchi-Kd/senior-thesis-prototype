@@ -41,13 +41,14 @@ export default function ResultClient() {
   const store = useGameStore();
   const {
     logs, preTestLogs, transferTestLogs, submitTransferTest, setSurvey, reset, markPhase, setPhase,
-    sessionId, testForms, testItemOrder, survey, resultType, setResultType, statsSubmitted, markStatsSubmitted, testRun,
+    sessionId, testForms, testItemOrder, survey, resultType, setResultType, testRun, playMode,
   } = store;
+  const freePlay = playMode === "free";
   const postQuestions = orderedQuestions(testForms.post, testItemOrder.post);
 
   // 再読み込み時は進み具合から画面を復元
   const [screen, setScreen] = useState<Screen>(() => {
-    if (survey) return "score";
+    if (survey || freePlay) return "score"; // 自由プレイは事後テスト・アンケートなしで結果発表へ
     if (transferTestLogs.length >= postQuestions.length) return "survey";
     if (transferTestLogs.length > 0) return "transfer";
     return "intro";
@@ -63,6 +64,17 @@ export default function ResultClient() {
   useEffect(() => {
     setPhase(screen === "score" ? "result" : screen === "survey" ? "survey" : "transfer_test");
   }, [screen, setPhase]);
+
+  // 自由プレイの完了処理（テスト・アンケートがないので結果発表に来た時点で完了）
+  useEffect(() => {
+    if (!freePlay || !gameDone || resultType) return;
+    const type = diagnosePlayerType(logs);
+    setResultType(type);
+    addToCollection(typeCardId(type));
+    markPhase("resultShown");
+    setPhase("result");
+    void saveSession();
+  }, [freePlay, gameDone, resultType, logs, setResultType, markPhase, setPhase]);
 
   const handleTransferComplete = useCallback(() => {
     markPhase("posttestEnd");
@@ -132,15 +144,7 @@ export default function ResultClient() {
           addToCollection(typeCardId(type));
           markPhase("surveyEnd");
           setPhase("result");
-          void saveSession(); // 全工程完了 → 最終保存
-          if (!testRun && !statsSubmitted) {
-            markStatsSubmitted();
-            void submitStats(
-              logs.filter((l) => l.correct).length,
-              transferTestLogs.filter((l) => l.correct).length,
-              type,
-            );
-          }
+          void saveSession(); // 全工程完了 → 最終保存（匿名集計の送信は結果発表の画面で行う）
           setScreen("score");
         }}
       />
@@ -288,18 +292,37 @@ function ScoreScreen({
   const [demo, setDemo] = useState<DemoPreset | null>(null); // テスト実行時の表示確認用
   const [collected, setCollected] = useState(0);
 
-  useEffect(() => {
-    // 集計の加算が反映されるよう少し待ってから取得
-    const t = setTimeout(() => void fetchStats().then(setStats), 800);
-    setCollected(loadCollection().length);
-    return () => clearTimeout(t);
-  }, []);
-
+  const playMode = useGameStore((s) => s.playMode);
+  const freePlay = playMode === "free";
   const gameCorrect = logs.filter((l) => l.correct).length;
+  const postCorrect = transferTestLogs.filter((l) => l.correct).length;
+
+  // 匿名集計：研究用の本番セッションだけ1回加算する。先に取得して表示し、加算の完了後に取り直す。
+  // pending（オフラインで送信待ち）は SDK が端末に保持して再送するので、再読み込み後も再送しない（二重加算防止）
+  useEffect(() => {
+    let alive = true;
+    setCollected(loadCollection().length);
+    void fetchStats().then((st) => alive && setStats(st));
+    const s = useGameStore.getState();
+    const eligible = !s.testRun && s.playMode === "research";
+    if (eligible && (s.statsState === "none" || s.statsState === "failed")) {
+      s.setStatsState("pending");
+      void submitStats(gameCorrect, postCorrect, resultType).then(async (ok) => {
+        useGameStore.getState().setStatsState(ok ? "done" : "failed");
+        if (ok) {
+          const st = await fetchStats();
+          if (alive) setStats(st);
+        }
+      });
+    }
+    return () => {
+      alive = false;
+    };
+  }, [gameCorrect, postCorrect, resultType]);
+
   const selfCorrect = logs.filter((l) => l.correct && !l.hintUsed).length;
   const hintCorrect = gameCorrect - selfCorrect;
   const preCorrect = preTestLogs.filter((l) => l.correct).length;
-  const postCorrect = transferTestLogs.filter((l) => l.correct).length;
   const totalScore = gameCorrect * 15 + postCorrect * 10;
   const type = PLAYER_TYPES[resultType];
   const profile = computeProfile(logs);
@@ -341,7 +364,7 @@ function ScoreScreen({
               </div>
               <p className="text-blue-100 text-xs leading-relaxed">
                 本編 {gameCorrect}/{logs.length} 正解（自力 {selfCorrect}・ヒントあり {hintCorrect}）<br />
-                事後テスト {postCorrect}/{transferTestLogs.length} 正解
+                {freePlay ? "🎮 自由プレイ（研究用データとは別に記録）" : `事後テスト ${postCorrect}/${transferTestLogs.length} 正解`}
               </p>
             </motion.div>
 
@@ -386,7 +409,8 @@ function ScoreScreen({
               </p>
             </motion.div>
 
-            {/* 事前→事後 */}
+            {/* 事前→事後（自由プレイはテストなし） */}
+            {!freePlay && (
             <Section title="テストの成長（事前 → 事後）" delay={0.3}>
               {[
                 { label: "事前", v: preCorrect, total: preTestLogs.length, color: "bg-gray-500" },
@@ -409,6 +433,7 @@ function ScoreScreen({
                 {postCorrect > preCorrect ? `🎉 ${postCorrect - preCorrect} 問アップ！` : postCorrect === preCorrect ? "キープ！" : "答え合わせで復習しよう"}
               </p>
             </Section>
+            )}
           </div>
 
           {/* ─── 右列：比較・詳細（開閉式）・コレクション ─── */}
@@ -458,10 +483,12 @@ function ScoreScreen({
               </Collapsible>
             )}
 
-            <Collapsible title="テストの答え合わせ">
-              <AnswerReview label="事前テスト" logs={preTestLogs} />
-              <AnswerReview label="事後テスト" logs={transferTestLogs} />
-            </Collapsible>
+            {!freePlay && (
+              <Collapsible title="テストの答え合わせ">
+                <AnswerReview label="事前テスト" logs={preTestLogs} />
+                <AnswerReview label="事後テスト" logs={transferTestLogs} />
+              </Collapsible>
+            )}
 
             {/* コレクション */}
             <div className="bg-gray-900 rounded-2xl p-3">

@@ -18,7 +18,7 @@ import { addToCollection, scenarioCardId } from "@/lib/collection";
 type Stage = "intro" | "practice" | "main" | "outro";
 
 // 本編の終了画面。ここから先（事後テスト・アンケート）は縦画面なので、横画面ロックを解除して縦持ちを促す
-function GameOutro({ total, onNext }: { total: number; onNext: () => void }) {
+function GameOutro({ total, freePlay, onNext }: { total: number; freePlay: boolean; onNext: () => void }) {
   useEffect(() => {
     try {
       (screen.orientation as unknown as { unlock?: () => void })?.unlock?.();
@@ -27,9 +27,15 @@ function GameOutro({ total, onNext }: { total: number; onNext: () => void }) {
     }
   }, []);
   return (
-    <StageScreen step="STEP 2 / 3 クリア" emoji="🏆" title="ゲーム本編クリア！" buttonLabel="事後テストへ →" onNext={onNext}>
-      <p>全{total}問、おつかれさまでした！ ご協力ありがとうございます。</p>
-      <p>最後に、学んだことを確かめる短いテストとアンケートがあります。結果発表はそのあと！</p>
+    <StageScreen
+      step={freePlay ? "自由プレイ" : "STEP 2 / 3 クリア"}
+      emoji="🏆"
+      title="ゲーム本編クリア！"
+      buttonLabel={freePlay ? "結果発表へ →" : "事後テストへ →"}
+      onNext={onNext}
+    >
+      <p>全{total}問、おつかれさまでした！ {freePlay ? "遊んでくれてありがとう！" : "ご協力ありがとうございます。"}</p>
+      {!freePlay && <p>最後に、学んだことを確かめる短いテストとアンケートがあります。結果発表はそのあと！</p>}
       <div className="flex items-center gap-3 bg-amber-500/15 border border-amber-500/40 rounded-xl p-3 mt-2">
         <span className="text-3xl animate-pulse">📱↻</span>
         <p className="text-amber-200 font-bold">ここからは、スマホを <span className="text-amber-100">縦向き</span> に戻してください。</p>
@@ -44,7 +50,7 @@ export default function GameClient() {
   const {
     phase, setPhase, startTimer, markScenarioStart, markJudgeOpen, submitDecision, nextScenario,
     hintUsed, useHint, recordInspect, closeInspect, markPhase, completePractice,
-    currentInspected, scenarioOrder, currentIndex, practiceDone, logs,
+    currentInspected, scenarioOrder, currentIndex, practiceDone, logs, playMode,
   } = useGameStore();
 
   // 再読み込み時：本編を終えていれば終了画面、練習済みなら本編から
@@ -160,7 +166,7 @@ export default function GameClient() {
   // ─── 区切り画面 ───
   if (stage === "intro") {
     return (
-      <StageScreen step="STEP 2 / 3" emoji="🏠" title="ゲーム本編" buttonLabel="操作の練習へ →" onNext={startPractice}>
+ <StageScreen step={playMode === "free" ? "自由プレイ" : "STEP 2 / 3"} emoji="🏠" title="ゲーム本編" buttonLabel="操作の練習へ →" onNext={startPractice}>
         <p>あなたは部屋にいる探偵です。スマホに届いた通知の中に <b>詐欺</b> がまぎれていないか、部屋にある情報（カレンダー・メモ・ポスター）と見比べて見破ろう。</p>
         <p>全{scenarioOrder.length}問。まずは30秒ほど、操作の練習をします。</p>
         <p className="text-gray-400 text-xs">📱 スマホは横向きでプレイしてください。</p>
@@ -168,7 +174,7 @@ export default function GameClient() {
     );
   }
   if (stage === "outro") {
-    return <GameOutro total={scenarioOrder.length} onNext={() => router.push("/result")} />;
+    return <GameOutro total={scenarioOrder.length} freePlay={playMode === "free"} onNext={() => router.push("/result")} />;
   }
 
   const inspectedObj = scenario.objects.find((o) => o.id === inspectedId);

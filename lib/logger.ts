@@ -27,6 +27,7 @@ export function buildPayload() {
     startedAt: s.startedAt,
     deviceInfo: s.deviceInfo,
     testRun: s.testRun,
+    playMode: s.playMode,
     priorPlays: s.priorPlays,
     resumeCount: s.resumeCount,
     testForms: s.testForms,

@@ -118,6 +118,7 @@ def main(outdir, allow_empty=False):
     for s in sessions:
         sid = s["sessionId"]
         completed = b(s.get("completed"))
+        free = s.get("playMode") == "free"  # 自由プレイは事前/事後テスト・アンケートなし（研究用データと分けて扱う）
         versions.add((s.get("schemaVersion", ""), s.get("contentVersion", "")))
         seen = [v for v in s.get("contentVersionsSeen", "").split("|") if v]
         if len(seen) > 1:
@@ -127,7 +128,12 @@ def main(outdir, allow_empty=False):
         pre, post, game = tests_by[sid]["pre"], tests_by[sid]["post"], trials_by[sid]
 
         # ─ 件数（完了セッションは全部そろっているはず）
-        if completed:
+        if completed and free:
+            if len(game) != N_GAME:
+                add("ERROR", sid, f"自由プレイの本編が{len(game)}件（期待{N_GAME}）")
+            if pre or post:
+                add("ERROR", sid, "自由プレイなのにテストの回答がある")
+        elif completed:
             if len(pre) != N_TEST:
                 add("ERROR", sid, f"事前テストが{len(pre)}件（期待{N_TEST}）")
             if len(post) != N_TEST:
@@ -145,7 +151,7 @@ def main(outdir, allow_empty=False):
             add("WARN", sid, f"未完了（最後のphase={s.get('phase')}, 非表示時のphase={s.get('lastHiddenPhase')}）")
 
         # ─ フォームと出題順
-        if s.get("preForm") and s.get("preForm") == s.get("postForm"):
+        if not free and s.get("preForm") and s.get("preForm") == s.get("postForm"):
             add("ERROR", sid, "事前と事後が同じフォーム")
         for phase, arr, form in (("pre", pre, s.get("preForm")), ("post", post, s.get("postForm"))):
             if arr:
@@ -246,7 +252,7 @@ def main(outdir, allow_empty=False):
         for (p1, v1), (p2, v2) in zip(present, present[1:]):
             if v2 < v1:
                 add("ERROR", sid, f"フェーズ時刻が逆順: {p1} > {p2}")
-        if completed:
+        if completed and not free:
             missing = [p for p, v in times if not v]
             if missing:
                 add("WARN", sid, f"フェーズ時刻の欠損: {missing}")
