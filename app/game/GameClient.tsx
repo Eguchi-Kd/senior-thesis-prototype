@@ -44,7 +44,7 @@ export default function GameClient() {
   const {
     phase, setPhase, startTimer, markScenarioStart, markJudgeOpen, submitDecision, nextScenario,
     hintUsed, useHint, recordInspect, closeInspect, markPhase, completePractice,
-    currentInspected, scenarioOrder, currentIndex, practiceDone,
+    currentInspected, scenarioOrder, currentIndex, practiceDone, logs,
   } = useGameStore();
 
   // 再読み込み時：本編を終えていれば終了画面、練習済みなら本編から
@@ -55,7 +55,10 @@ export default function GameClient() {
   const [showJudge, setShowJudge] = useState(false);
   const [draftDecision, setDraftDecision] = useState<Decision | null>(null);
   const [draftConfidence, setDraftConfidence] = useState<number | null>(null);
-  const [lastResult, setLastResult] = useState<{ correct: boolean; newCard: boolean } | null>(null);
+  // 解説の表示中に再読み込みした場合は、記録済みの判定から同じ解説を再表示する
+  const [lastResult, setLastResult] = useState<{ correct: boolean; newCard: boolean } | null>(() =>
+    phase === "feedback" && logs.length > currentIndex ? { correct: logs[currentIndex].correct, newCard: false } : null,
+  );
   const [practice, setPractice] = useState<PracticeCheck>({ move: false, look: false, inspect: false });
   const [practiceDoneModal, setPracticeDoneModal] = useState(false);
 

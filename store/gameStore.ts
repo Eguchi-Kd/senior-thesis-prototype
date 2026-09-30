@@ -75,6 +75,7 @@ export interface TestLog {
   confidence: number;
   reactionTimeMs: number;
   hiddenMs: number;
+  restarted: boolean; // 回答中に再読み込みがあり、RTが途中から測り直しになった
   signalType: SignalType;
 }
 
@@ -115,6 +116,8 @@ interface GameState {
   testItemOrder: { pre: string[]; post: string[] }; // 出題順（再読み込みでも同じ順で続きから）
   phaseTimes: Record<string, number>; // 各フェーズの到達時刻（epoch ms）
   resumeCount: number; // 再読み込みで再開した回数
+  contentVersionsSeen: string[]; // このセッション中に見た内容の版（2つ以上＝途中で配信が更新された）
+  testRestartPending: boolean; // テスト中の再読み込み後、次の回答に restarted を付ける
 
   // 画面の非表示（アプリ切替など）の記録。一時的な切替を「離脱」とは決めない
   hiddenCount: number;
@@ -169,8 +172,8 @@ interface GameState {
   markVisible: () => void;
   completePractice: () => void;
   submitDecision: (decision: Decision, confidence: number, correct: boolean, isFraud: boolean) => void;
-  submitPreTest: (log: Omit<TestLog, "signalType">) => void;
-  submitTransferTest: (log: Omit<TestLog, "signalType">) => void;
+  submitPreTest: (log: Omit<TestLog, "signalType" | "restarted">) => void;
+  submitTransferTest: (log: Omit<TestLog, "signalType" | "restarted">) => void;
   nextScenario: () => void;
   setConsent: (agreed: boolean) => void;
   setDemographics: (d: Demographics, selfEfficacyPre: number) => void;
@@ -210,6 +213,12 @@ function computeRelevance(scenarioId: number, inspected: string[]) {
   };
 }
 
+const toTestLog = (log: Omit<TestLog, "signalType" | "restarted">, restarted: boolean): TestLog => ({
+  ...log,
+  restarted,
+  signalType: deriveSignalType(log.answer === "fraud" ? "report" : "ignore", log.isFraud),
+});
+
 const perScenarioReset = () => ({
   scenarioStartTime: null as number | null,
   firstInspectTime: null as number | null,
@@ -242,6 +251,8 @@ const initialState = () => {
     },
     phaseTimes: {} as Record<string, number>,
     resumeCount: 0,
+    contentVersionsSeen: [CONTENT_VERSION],
+    testRestartPending: false,
     hiddenCount: 0,
     hiddenTotalMs: 0,
     hiddenAt: null as number | null,
@@ -268,6 +279,33 @@ const initialState = () => {
 
 // サーバー（静的書き出し時）では何も保存しないダミーストレージ
 const noopStorage: StateStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+
+// 保存領域が使えない・満杯（QuotaExceeded 等）でもゲームを止めず、メモリ上だけで続行する
+let storageWarned = false;
+const safeSessionStorage: StateStorage = {
+  getItem: (k) => {
+    try {
+      return sessionStorage.getItem(k);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (k, v) => {
+    try {
+      sessionStorage.setItem(k, v);
+    } catch (e) {
+      if (!storageWarned) console.warn("セッションを端末に保存できません（再読み込みすると続きから再開できません）:", e);
+      storageWarned = true;
+    }
+  },
+  removeItem: (k) => {
+    try {
+      sessionStorage.removeItem(k);
+    } catch {
+      /* 無視 */
+    }
+  },
+};
 
 export const useGameStore = create<GameState>()(
   persist(
@@ -383,18 +421,14 @@ export const useGameStore = create<GameState>()(
 
       submitPreTest: (log) =>
         set((state) => ({
-          preTestLogs: [
-            ...state.preTestLogs,
-            { ...log, signalType: deriveSignalType(log.answer === "fraud" ? "report" : "ignore", log.isFraud) },
-          ],
+          preTestLogs: [...state.preTestLogs, toTestLog(log, state.testRestartPending)],
+          testRestartPending: false,
         })),
 
       submitTransferTest: (log) =>
         set((state) => ({
-          transferTestLogs: [
-            ...state.transferTestLogs,
-            { ...log, signalType: deriveSignalType(log.answer === "fraud" ? "report" : "ignore", log.isFraud) },
-          ],
+          transferTestLogs: [...state.transferTestLogs, toTestLog(log, state.testRestartPending)],
+          testRestartPending: false,
         })),
 
       nextScenario: () => {
@@ -421,7 +455,7 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: "scamDetective.session",
-      storage: createJSONStorage(() => (typeof window !== "undefined" ? sessionStorage : noopStorage)),
+      storage: createJSONStorage(() => (typeof window !== "undefined" ? safeSessionStorage : noopStorage)),
       // 再読み込み後は performance.now 基準の時刻が無効になるので、計測中のシナリオをやり直しにする
       onRehydrateStorage: () => (state) => {
         if (!state) return;
@@ -432,15 +466,22 @@ export const useGameStore = create<GameState>()(
           hiddenAt: null,
           deviceInfo: captureDeviceInfo() ?? state.deviceInfo,
         };
+        // 非表示のまま再読み込みされた場合、その時間も非表示時間に含める
+        if (state.hiddenAt != null) {
+          patch.hiddenTotalMs = state.hiddenTotalMs + Math.max(0, Date.now() - state.hiddenAt);
+        }
+        // 途中で配信が更新された場合：旧版のラベルは書き換えず、見た版をすべて記録する（分析で検出・除外する）
+        const seen = state.contentVersionsSeen?.length ? state.contentVersionsSeen : [state.contentVersion];
+        if (!seen.includes(CONTENT_VERSION)) patch.contentVersionsSeen = [...seen, CONTENT_VERSION];
         if (inGame || state.phase === "practice" || state.phase === "pretest" || state.phase === "transfer_test") {
           patch.resumeCount = state.resumeCount + 1;
         }
+        // テスト中の再読み込み：次に回答する問題のRTはやり直し扱い（ログに restarted を付ける）
+        if (state.phase === "pretest" || state.phase === "transfer_test") patch.testRestartPending = true;
         if (inGame) {
           if (answeredCurrent) {
-            // 判定済み（フィードバック表示中）で再読み込み → 次のシナリオへ進める
-            const last = state.currentIndex >= state.scenarioOrder.length - 1;
-            patch.phase = last ? "transfer_test" : "exploring";
-            if (!last) patch.currentIndex = state.currentIndex + 1;
+            // 判定済み（解説を表示中）で再読み込み → 同じ解説から再開する（GameClient がログから復元）
+            patch.phase = "feedback";
           } else {
             patch.phase = "exploring";
             patch.scenarioRestarted = true;

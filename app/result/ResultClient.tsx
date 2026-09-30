@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useGameStore, type TestLog } from "@/store/gameStore";
-import { saveSession, saveSnapshot, toParticipantCode, useSaveStatus } from "@/lib/logger";
+import { confirmFinalSave, saveSession, saveSnapshot, toParticipantCode } from "@/lib/logger";
 import { orderedQuestions, findQuestion } from "@/lib/testForms";
 import { QuizRunner } from "@/components/ui/QuizRunner";
 import { StageScreen } from "@/components/ui/StageScreen";
@@ -53,10 +53,12 @@ export default function ResultClient() {
     return "intro";
   });
 
-  // 直接アクセス（ログ無し）はタイトルへ
+  // 直接アクセス（ログ無し）はタイトルへ、本編が終わっていなければゲームへ戻す
+  const gameDone = logs.length >= store.scenarioOrder.length;
   useEffect(() => {
     if (logs.length === 0) router.replace("/");
-  }, [logs, router]);
+    else if (!gameDone) router.replace("/game");
+  }, [logs, gameDone, router]);
 
   useEffect(() => {
     setPhase(screen === "score" ? "result" : screen === "survey" ? "survey" : "transfer_test");
@@ -68,7 +70,7 @@ export default function ResultClient() {
     setScreen("outro");
   }, [markPhase]);
 
-  if (logs.length === 0) return null;
+  if (logs.length === 0 || !gameDone) return null;
 
   if (screen === "intro") {
     return (
@@ -263,7 +265,25 @@ function ScoreScreen({
   transferTestLogs: TestLog[];
 }) {
   const logs = useGameStore((s) => s.logs);
-  const save = useSaveStatus();
+  // 最終データがサーバーに届いたことを、このセッションの書き込み完了で確かめる（再読み込みのたびに再確認）
+  const [saveState, setSaveState] = useState<"checking" | "confirmed" | "failed">("checking");
+  const [online, setOnline] = useState(true);
+  const runConfirm = useCallback(() => {
+    setSaveState("checking");
+    void confirmFinalSave().then((ok) => setSaveState(ok ? "confirmed" : "failed"));
+  }, []);
+  useEffect(() => {
+    runConfirm();
+    setOnline(navigator.onLine);
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", off);
+    };
+  }, [runConfirm]);
   const [realStats, setStats] = useState<Stats | null | undefined>(undefined);
   const [demo, setDemo] = useState<DemoPreset | null>(null); // テスト実行時の表示確認用
   const [collected, setCollected] = useState(0);
@@ -463,13 +483,20 @@ function ScoreScreen({
                 <p className="text-gray-400 text-[10px]">参加者コード</p>
                 <p className="text-white text-lg font-mono font-black tracking-widest leading-tight">{toParticipantCode(sessionId)}</p>
               </div>
-              <p className={`text-[11px] text-right ${save.pending > 0 ? "text-amber-300" : save.lastError ? "text-red-300" : "text-emerald-300"}`}>
-                {save.pending > 0
-                  ? "⏳ 送信待ち（通信が戻ると自動送信）"
-                  : save.lastError
-                    ? "⚠ 送信失敗。スタッフにお知らせください"
-                    : "✓ データ送信済み"}
-              </p>
+              <div className={`text-[11px] text-right ${saveState === "confirmed" ? "text-emerald-300" : saveState === "failed" ? "text-red-300" : "text-amber-300"}`}>
+                {saveState === "confirmed"
+                  ? "✓ データ送信済み（サーバーで確認）"
+                  : saveState === "failed"
+                    ? (
+                      <>
+                        ⚠ 送信に失敗しました。スタッフにお知らせください
+                        <button onClick={runConfirm} className="block ml-auto mt-1 px-2 py-0.5 rounded bg-red-500/30 text-red-100">再送する</button>
+                      </>
+                    )
+                    : online
+                      ? "⏳ 送信を確認中…"
+                      : "⏳ 送信待ち（通信が戻ると自動で送信されます）"}
+              </div>
             </div>
 
             <button onClick={onReplay} className="w-full py-3 bg-blue-600 text-white font-black rounded-2xl">

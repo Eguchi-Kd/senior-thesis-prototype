@@ -4,15 +4,20 @@ export_firestore.py が出力したCSV（sessions/trials/tests）の整合性を
 
 使い方:
     python validate_export.py analysis/data/export_YYYYMMDD_HHMMSS
+    python validate_export.py <フォルダ> --allow-empty   # 0件を許可（通常は0件をエラーにする）
+
+問題IDと正解の照合には analysis/items.json（node analysis/dump_items.mjs で生成）を使う。
 
 判定:
     ERROR = 分析にそのまま使えない（原因を調べて除外・修正が必要）
     WARN  = 分析時に注意（除外基準や感度分析で扱う）
 """
+import argparse
 import csv
+import json
 import os
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 N_TEST = 6
 N_GAME = 6
@@ -23,11 +28,41 @@ RT_MAX_MS = 10 * 60 * 1000  # 1問10分超は異常
 HIDDEN_WARN_MS = 30 * 1000  # 30秒以上の非表示はRT解釈に注意
 
 
-def read(path):
-    if not os.path.exists(path) or os.path.getsize(path) == 0:
+REQUIRED = {
+    "sessions.csv": ["sessionId", "completed", "schemaVersion", "contentVersion", "preForm", "postForm", "susScore"],
+    "trials.csv": ["sessionId", "scenarioId", "isFraud", "decision", "correct", "signalType", "confidence",
+                   "reactionTimeMs", "inspectedIds", "inspectEvents", "hintUsed", "hintAtMs"],
+    "tests.csv": ["sessionId", "phase", "form", "position", "questionId", "isFraud", "answer", "correct",
+                  "confidence", "signalType", "reactionTimeMs"],
+}
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+class FatalInput(Exception):
+    pass
+
+
+def read(outdir, name):
+    """必須ファイルを読む。ファイルがない・ヘッダが足りない場合は FatalInput。0バイトは行なし（export の仕様）"""
+    path = os.path.join(outdir, name)
+    if not os.path.isfile(path):
+        raise FatalInput(f"{name} がありません（エクスポートのフォルダを確認）")
+    if os.path.getsize(path) == 0:
         return []
     with open(path, encoding="utf-8-sig", newline="") as f:
-        return list(csv.DictReader(f))
+        reader = csv.DictReader(f)
+        missing = [c for c in REQUIRED[name] if c not in (reader.fieldnames or [])]
+        if missing:
+            raise FatalInput(f"{name} に必要な列がありません: {missing}")
+        return list(reader)
+
+
+def load_items():
+    path = os.path.join(HERE, "items.json")
+    if not os.path.isfile(path):
+        return None
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
 
 
 def b(v):
@@ -47,14 +82,30 @@ def expected_signal(is_fraud, decision_is_report):
     return "fa" if decision_is_report else "cr"
 
 
-def main(outdir):
-    sessions = read(os.path.join(outdir, "sessions.csv"))
-    trials = read(os.path.join(outdir, "trials.csv"))
-    tests = read(os.path.join(outdir, "tests.csv"))
+def main(outdir, allow_empty=False):
+    if not os.path.isdir(outdir):
+        print(f"[ERROR] フォルダがありません: {outdir}")
+        return 1
+    try:
+        sessions = read(outdir, "sessions.csv")
+        trials = read(outdir, "trials.csv")
+        tests = read(outdir, "tests.csv")
+    except FatalInput as e:
+        print(f"[ERROR] {e}")
+        return 1
     issues = []  # (level, sessionId, message)
 
     def add(level, sid, msg):
         issues.append((level, sid, msg))
+
+    if not sessions and not allow_empty:
+        add("ERROR", "-", "セッションが0件です（パイロットなら --include-test を付けてエクスポートしたか確認。0件が正しい場合は --allow-empty）")
+
+    items = load_items()
+    test_def = {t["id"]: t for t in items["tests"]} if items else {}
+    scn_def = {str(sc["id"]): sc for sc in items["scenarios"]} if items else {}
+    if items is None:
+        add("WARN", "-", "analysis/items.json がないため、問題IDと正解の照合を省略（node analysis/dump_items.mjs で生成）")
 
     trials_by = defaultdict(list)
     for t in trials:
@@ -68,6 +119,11 @@ def main(outdir):
         sid = s["sessionId"]
         completed = b(s.get("completed"))
         versions.add((s.get("schemaVersion", ""), s.get("contentVersion", "")))
+        seen = [v for v in s.get("contentVersionsSeen", "").split("|") if v]
+        if len(seen) > 1:
+            add("WARN", sid, f"途中で配信が更新された（見た版: {seen}）。版の混在として扱う")
+        if items and s.get("contentVersion") and s.get("contentVersion") != items.get("contentVersion"):
+            add("WARN", sid, f"contentVersion {s.get('contentVersion')} が items.json の版 {items.get('contentVersion')} と異なる（照合結果に注意）")
         pre, post, game = tests_by[sid]["pre"], tests_by[sid]["post"], trials_by[sid]
 
         # ─ 件数（完了セッションは全部そろっているはず）
@@ -105,6 +161,19 @@ def main(outdir):
 
         # ─ テストのSDT整合・RT
         for t in pre + post:
+            qd = test_def.get(t["questionId"])
+            if items and qd is None:
+                add("ERROR", sid, f"{t['questionId']}: 未知の問題ID")
+            elif qd:
+                if b(t["isFraud"]) != qd["isFraud"]:
+                    add("ERROR", sid, f"{t['questionId']}: isFraud が問題定義と不一致")
+                if t.get("form") and t["form"] != qd["form"]:
+                    add("ERROR", sid, f"{t['questionId']}: form が問題定義({qd['form']})と不一致")
+            conf = num(t.get("confidence"))
+            if conf is None or not (1 <= conf <= 5):
+                add("ERROR", sid, f"{t['questionId']}: 確信度が1〜5の範囲外 {t.get('confidence')}")
+            if b(t.get("restarted")):
+                add("WARN", sid, f"{t['questionId']}: 回答中に再読み込み（RTは測り直し）")
             is_fraud = b(t["isFraud"])
             rep = t["answer"] == "fraud"
             if b(t["correct"]) != (rep == is_fraud):
@@ -123,8 +192,19 @@ def main(outdir):
         orders = sorted(int(num(t.get("presentationOrder")) or 0) for t in game)
         if completed and orders != list(range(1, N_GAME + 1)):
             add("ERROR", sid, f"本編の提示順が1..6でない: {orders}")
+        dup = [k for k, c in Counter(t["scenarioId"] for t in game).items() if c > 1]
+        if dup:
+            add("ERROR", sid, f"本編で同じシナリオが重複記録: {dup}")
         for t in game:
             scn = t["scenarioId"]
+            sd = scn_def.get(str(scn))
+            if items and sd is None:
+                add("ERROR", sid, f"本編{scn}: 未知のシナリオID")
+            elif sd and b(t["isFraud"]) != sd["isFraud"]:
+                add("ERROR", sid, f"本編{scn}: isFraud がシナリオ定義と不一致")
+            conf = num(t.get("confidence"))
+            if conf is None or not (1 <= conf <= 5):
+                add("ERROR", sid, f"本編{scn}: 確信度が1〜5の範囲外 {t.get('confidence')}")
             is_fraud = b(t["isFraud"])
             rep = t["decision"] == "report"
             if b(t["correct"]) != (rep == is_fraud):
@@ -192,6 +272,8 @@ def main(outdir):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        sys.exit("使い方: python validate_export.py <export_フォルダ>")
-    sys.exit(main(sys.argv[1]))
+    ap = argparse.ArgumentParser()
+    ap.add_argument("outdir", help="export_firestore.py の出力フォルダ")
+    ap.add_argument("--allow-empty", action="store_true", help="0件でもエラーにしない")
+    a = ap.parse_args()
+    sys.exit(main(a.outdir, a.allow_empty))

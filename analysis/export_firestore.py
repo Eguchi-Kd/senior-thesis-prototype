@@ -95,6 +95,7 @@ def flatten_sessions(docs, include_test):
             "testRun": test_run,
             "schemaVersion": d.get("schemaVersion", 1),
             "contentVersion": d.get("contentVersion", ""),
+            "contentVersionsSeen": "|".join(d.get("contentVersionsSeen") or []),
             "priorPlays": d.get("priorPlays", ""),
             "resumeCount": d.get("resumeCount", ""),
             "hiddenCount": d.get("hiddenCount", ""),
@@ -185,6 +186,7 @@ def flatten_sessions(docs, include_test):
                     "confidence": t.get("confidence", ""),
                     "reactionTimeMs": t.get("reactionTimeMs", ""),
                     "hiddenMs": t.get("hiddenMs", ""),
+                    "restarted": t.get("restarted", ""),
                     "signalType": t.get("signalType", ""),
                 })
     return sessions, trials, tests
