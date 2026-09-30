@@ -49,5 +49,6 @@ orchestrator/__pycache__/
 **/serviceAccountKey.json
 **/*firebase-adminsdk*.json
 analysis/*.json
+!analysis/items.json
 analysis/data/
 analysis/__pycache__/

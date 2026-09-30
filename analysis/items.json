@@ -1,0 +1,109 @@
+{
+  "contentVersion": "2026-10-03",
+  "tests": [
+    {
+      "id": "PRE_F1",
+      "form": "A",
+      "isFraud": true,
+      "difficulty": "medium"
+    },
+    {
+      "id": "PRE_F2",
+      "form": "A",
+      "isFraud": true,
+      "difficulty": "hard"
+    },
+    {
+      "id": "PRE_F3",
+      "form": "A",
+      "isFraud": true,
+      "difficulty": "easy"
+    },
+    {
+      "id": "PRE_S1",
+      "form": "A",
+      "isFraud": false,
+      "difficulty": "easy"
+    },
+    {
+      "id": "PRE_S2",
+      "form": "A",
+      "isFraud": false,
+      "difficulty": "hard"
+    },
+    {
+      "id": "PRE_S3",
+      "form": "A",
+      "isFraud": false,
+      "difficulty": "medium"
+    },
+    {
+      "id": "POST_F1",
+      "form": "B",
+      "isFraud": true,
+      "difficulty": "medium"
+    },
+    {
+      "id": "POST_F2",
+      "form": "B",
+      "isFraud": true,
+      "difficulty": "hard"
+    },
+    {
+      "id": "POST_F3",
+      "form": "B",
+      "isFraud": true,
+      "difficulty": "easy"
+    },
+    {
+      "id": "POST_S1",
+      "form": "B",
+      "isFraud": false,
+      "difficulty": "easy"
+    },
+    {
+      "id": "POST_S2",
+      "form": "B",
+      "isFraud": false,
+      "difficulty": "hard"
+    },
+    {
+      "id": "POST_S3",
+      "form": "B",
+      "isFraud": false,
+      "difficulty": "medium"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": 1,
+      "isFraud": true,
+      "difficulty": "easy"
+    },
+    {
+      "id": 2,
+      "isFraud": true,
+      "difficulty": "hard"
+    },
+    {
+      "id": 3,
+      "isFraud": true,
+      "difficulty": "medium"
+    },
+    {
+      "id": 4,
+      "isFraud": true,
+      "difficulty": "hard"
+    },
+    {
+      "id": 101,
+      "isFraud": false,
+      "difficulty": "medium"
+    },
+    {
+      "id": 102,
+      "isFraud": false,
+      "difficulty": "hard"
+    }
+  ]
+}
