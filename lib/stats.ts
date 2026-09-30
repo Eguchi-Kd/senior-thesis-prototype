@@ -3,7 +3,7 @@ import { db } from "./firebase";
 import type { PlayerTypeId } from "./playerType";
 
 // 他プレイヤーとの比較用の集計（個人のログは含まない匿名の人数カウントのみ）。
-// キー：n=参加人数, g0..g6=本編の正答数, p0..p6=事後テストの正答数, t_<type>=タイプ別人数
+// キー：n=参加人数, g0..g6=本編の正答数, p0..p6=事後テストの正答数, t_<type>=タイプ別人数（firestore.rules の許可キーと一致させる）
 const STATS_REF = () => doc(db, "stats", "festival2026");
 
 export type Stats = Record<string, number>;
@@ -36,15 +36,15 @@ const toStats = (g: number[], p: number[], t: Record<PlayerTypeId, number>): Sta
 export const DEMO_STATS: Record<DemoPreset, { label: string; stats: Stats }> = {
   few: {
     label: "集計中（3人）",
-    stats: toStats([0, 0, 0, 1, 1, 1, 0], [0, 0, 0, 1, 1, 1, 0], { detective: 1, cautious: 1, trusting: 0, intuitive: 0, balanced: 1 }),
+    stats: toStats([0, 0, 0, 1, 1, 1, 0], [0, 0, 0, 1, 1, 1, 0], { detective: 1, growing: 1, cautious: 1, trusting: 0, intuitive: 0, balanced: 0 }),
   },
   "30": {
     label: "30人",
-    stats: toStats([0, 1, 2, 5, 9, 8, 5], [0, 1, 3, 6, 9, 7, 4], { detective: 7, cautious: 8, trusting: 6, intuitive: 4, balanced: 5 }),
+    stats: toStats([0, 1, 2, 5, 9, 8, 5], [0, 1, 3, 6, 9, 7, 4], { detective: 9, growing: 8, cautious: 6, trusting: 4, intuitive: 2, balanced: 1 }),
   },
   "120": {
     label: "120人",
-    stats: toStats([1, 3, 9, 20, 35, 32, 20], [1, 4, 11, 24, 37, 28, 15], { detective: 26, cautious: 33, trusting: 25, intuitive: 15, balanced: 21 }),
+    stats: toStats([1, 3, 9, 20, 35, 32, 20], [1, 4, 11, 24, 37, 28, 15], { detective: 40, growing: 33, cautious: 22, trusting: 15, intuitive: 7, balanced: 3 }),
   },
 };
 

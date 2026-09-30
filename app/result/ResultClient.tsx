@@ -386,12 +386,12 @@ function ScoreScreen({
                     axes={[
                       { label: "見破る", value: profile.detect },
                       { label: "見極める", value: profile.discern },
-                      { label: "見比べる", value: profile.compare },
-                      { label: "じっくり", value: profile.patience },
+                      { label: "両方確認", value: profile.compare },
+                      { label: "時間", value: profile.time },
                       { label: "自力", value: profile.selfReliance },
                     ]}
                   />
-                  <p className="text-[9px] opacity-60 -mt-1">本編6問からのざっくりの目安</p>
+                  <p className="text-[9px] opacity-60 -mt-1 text-center leading-tight">本編6問からのざっくりの目安<br />（時間は長いほど良いという意味ではありません）</p>
                 </div>
               </div>
               <p className="text-xs font-bold mt-2">
@@ -411,7 +411,7 @@ function ScoreScreen({
 
             {/* 事前→事後（自由プレイはテストなし） */}
             {!freePlay && (
-            <Section title="テストの成長（事前 → 事後）" delay={0.3}>
+            <Section title="事前と事後のテスト結果" delay={0.3}>
               {[
                 { label: "事前", v: preCorrect, total: preTestLogs.length, color: "bg-gray-500" },
                 { label: "事後", v: postCorrect, total: transferTestLogs.length, color: "bg-emerald-500" },
@@ -430,8 +430,9 @@ function ScoreScreen({
                 </div>
               ))}
               <p className="text-xs text-gray-400 mt-1">
-                {postCorrect > preCorrect ? `🎉 ${postCorrect - preCorrect} 問アップ！` : postCorrect === preCorrect ? "キープ！" : "答え合わせで復習しよう"}
+                {postCorrect > preCorrect ? `🎉 事後のほうが ${postCorrect - preCorrect} 問多く正解！` : postCorrect === preCorrect ? "事前と同じ正解数でした" : "答え合わせで復習しよう"}
               </p>
+              <p className="text-[10px] text-gray-500 mt-1">※事前と事後は別の問題です。差がそのまま実力の伸びを表すわけではありません。</p>
             </Section>
             )}
           </div>
