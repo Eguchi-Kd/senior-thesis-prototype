@@ -22,6 +22,43 @@ export async function submitStats(gameCorrect: number, postCorrect: number, type
   }
 }
 
+// ─── 表示確認用のダミー集計（テスト実行時のみ使用。Firestore には読み書きしない） ───
+export type DemoPreset = "few" | "30" | "120";
+
+const toStats = (g: number[], p: number[], t: Record<PlayerTypeId, number>): Stats => {
+  const s: Stats = { n: g.reduce((a, b) => a + b, 0) };
+  g.forEach((v, k) => (s[`g${k}`] = v));
+  p.forEach((v, k) => (s[`p${k}`] = v));
+  (Object.keys(t) as PlayerTypeId[]).forEach((k) => (s[`t_${k}`] = t[k]));
+  return s;
+};
+
+export const DEMO_STATS: Record<DemoPreset, { label: string; stats: Stats }> = {
+  few: {
+    label: "集計中（3人）",
+    stats: toStats([0, 0, 0, 1, 1, 1, 0], [0, 0, 0, 1, 1, 1, 0], { detective: 1, cautious: 1, trusting: 0, intuitive: 0, balanced: 1 }),
+  },
+  "30": {
+    label: "30人",
+    stats: toStats([0, 1, 2, 5, 9, 8, 5], [0, 1, 3, 6, 9, 7, 4], { detective: 7, cautious: 8, trusting: 6, intuitive: 4, balanced: 5 }),
+  },
+  "120": {
+    label: "120人",
+    stats: toStats([1, 3, 9, 20, 35, 32, 20], [1, 4, 11, 24, 37, 28, 15], { detective: 26, cautious: 33, trusting: 25, intuitive: 15, balanced: 21 }),
+  },
+};
+
+// ダミー集計に自分の結果を1人分加える（本番で自分の加算後に取得するのと同じ見え方にする）
+export function withSelf(stats: Stats, gameCorrect: number, postCorrect: number, type: PlayerTypeId): Stats {
+  const s = { ...stats };
+  const inc = (k: string) => (s[k] = (s[k] ?? 0) + 1);
+  inc("n");
+  inc(`g${gameCorrect}`);
+  inc(`p${postCorrect}`);
+  inc(`t_${type}`);
+  return s;
+}
+
 export async function fetchStats(): Promise<Stats | null> {
   try {
     const snap = await getDoc(STATS_REF());

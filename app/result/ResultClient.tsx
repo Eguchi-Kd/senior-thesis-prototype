@@ -12,7 +12,7 @@ import { StageScreen } from "@/components/ui/StageScreen";
 import { LikertButtons } from "@/components/ui/LikertButtons";
 import { getScenarioById } from "@/lib/scenarios";
 import { diagnosePlayerType, PLAYER_TYPES, type PlayerTypeId } from "@/lib/playerType";
-import { fetchStats, submitStats, type Stats } from "@/lib/stats";
+import { fetchStats, submitStats, DEMO_STATS, withSelf, type DemoPreset, type Stats } from "@/lib/stats";
 import { addToCollection, loadCollection, typeCardId } from "@/lib/collection";
 import { TOTAL_CARDS } from "@/lib/cards";
 
@@ -263,7 +263,8 @@ function ScoreScreen({
 }) {
   const logs = useGameStore((s) => s.logs);
   const save = useSaveStatus();
-  const [stats, setStats] = useState<Stats | null | undefined>(undefined);
+  const [realStats, setStats] = useState<Stats | null | undefined>(undefined);
+  const [demo, setDemo] = useState<DemoPreset | null>(null); // テスト実行時の表示確認用
   const [collected, setCollected] = useState(0);
 
   useEffect(() => {
@@ -280,6 +281,8 @@ function ScoreScreen({
   const postCorrect = transferTestLogs.filter((l) => l.correct).length;
   const totalScore = gameCorrect * 15 + postCorrect * 10;
   const type = PLAYER_TYPES[resultType];
+  // ダミー表示中は、本番で自分の加算後に取得した場合と同じく自分の結果を1人分含める
+  const stats = demo ? withSelf(DEMO_STATS[demo].stats, gameCorrect, postCorrect, resultType) : realStats;
   const n = stats?.n ?? 0;
   const enoughPeers = n >= MIN_PEERS;
   const wrongLogs = logs.filter((l) => !l.correct);
@@ -289,6 +292,20 @@ function ScoreScreen({
       <div className="w-full max-w-md landscape:max-w-4xl md:max-w-4xl">
         <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="text-center mb-3">
           <h1 className="text-white text-2xl font-black">🏆 結果発表</h1>
+          {testRun && (
+            <div className="flex flex-wrap items-center justify-center gap-1.5 mt-2 text-[11px]">
+              <span className="text-yellow-300">🧪 表示確認：</span>
+              {([null, "few", "30", "120"] as (DemoPreset | null)[]).map((d) => (
+                <button
+                  key={d ?? "real"}
+                  onClick={() => setDemo(d)}
+                  className={`px-2 py-1 rounded-full border ${demo === d ? "bg-yellow-400 text-gray-900 border-yellow-400" : "border-yellow-500/60 text-yellow-200"}`}
+                >
+                  {d ? `ダミー ${DEMO_STATS[d].label}` : "実データ"}
+                </button>
+              ))}
+            </div>
+          )}
           <p className="text-gray-300 text-xs mt-1">研究へのご協力、本当にありがとうございました！ あなたの回答が、詐欺から身を守る学び方づくりに役立ちます。</p>
         </motion.div>
 
@@ -321,7 +338,7 @@ function ScoreScreen({
                   : stats === null
                     ? "（通信できないため、他の人との比較は表示できません）"
                     : enoughPeers
-                      ? `同じタイプは ${stats[`t_${resultType}`] ?? 0} 人（全 ${n} 人中）`
+                      ? `同じタイプは ${stats[`t_${resultType}`] ?? 0} 人（全 ${n} 人中）${demo ? "〔ダミー〕" : ""}`
                       : `まだ参加者が少ないため集計中です（現在 ${n} 人）`}
               </p>
               {testRun && <p className="text-[10px] opacity-70 mt-1">※テスト実行のため、あなたの結果は集計に含まれません</p>}
@@ -354,7 +371,7 @@ function ScoreScreen({
 
           {/* ─── 右列：比較・詳細（開閉式）・コレクション ─── */}
           <div className="space-y-3">
-            <Section title="みんなとの比較（本編の正解数）" delay={0.4}>
+            <Section title={`みんなとの比較（本編の正解数）${demo ? "〔ダミー集計〕" : ""}`} delay={0.4}>
               {stats && enoughPeers ? (
                 <PeerHistogram stats={stats} mine={gameCorrect} max={logs.length} />
               ) : (

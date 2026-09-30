@@ -24,7 +24,7 @@ export const PLAYER_TYPES: Record<PlayerTypeId, { name: string; emoji: string; d
   intuitive: {
     name: "直感派タイプ",
     emoji: "⚡",
-    desc: "判断のスピードが持ち味。ただ、見比べる前に決めてしまうことがありました。",
+    desc: "決断の早さが持ち味。ただ、部屋の情報とじっくり見比べる前に決めてしまうことがありました。",
     tip: "スマホの通知だけでなく、予定やメモなど手元の情報と照らし合わせると、直感がもっと当たるようになります。",
   },
   balanced: {
@@ -41,14 +41,25 @@ export const PLAYER_TYPE_IDS = Object.keys(PLAYER_TYPES) as PlayerTypeId[];
 export function diagnosePlayerType(logs: ScenarioLog[]): PlayerTypeId {
   if (logs.length === 0) return "balanced";
   const correct = logs.filter((l) => l.correct).length;
-  const fa = logs.filter((l) => l.signalType === "fa").length;
-  const miss = logs.filter((l) => l.signalType === "miss").length;
+  const nSafe = logs.filter((l) => !l.isFraud).length;
+  const nFraud = logs.length - nSafe;
+  // 本編は詐欺4・安全2で問題数が違うため、回数ではなく率で比べる
+  const faRate = nSafe ? logs.filter((l) => l.signalType === "fa").length / nSafe : 0;
+  const missRate = nFraud ? logs.filter((l) => l.signalType === "miss").length / nFraud : 0;
   const relevantRate = logs.filter((l) => l.viewedAllRelevant).length / logs.length;
   const avgInspected = logs.reduce((s, l) => s + l.inspectedIds.length, 0) / logs.length;
 
   if (correct >= logs.length - 1 && relevantRate >= 0.8) return "detective";
-  if (fa > miss) return "cautious";
-  if (miss > fa) return "trusting";
-  if (avgInspected < 2) return "intuitive";
+  if (faRate > missRate) return "cautious";
+  if (missRate > faRate) return "trusting";
+  if (avgInspected < 2 || median(logs.map((l) => l.reactionTimeMs)) < QUICK_MS) return "intuitive";
   return "balanced";
+}
+
+const QUICK_MS = 15_000; // 初回調査→決定の中央値がこれ未満なら「すばやく決めた」とみなす
+
+function median(xs: number[]): number {
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
