@@ -16,6 +16,27 @@ import { saveSnapshot } from "@/lib/logger";
 import { addToCollection, scenarioCardId } from "@/lib/collection";
 
 type Stage = "intro" | "practice" | "main" | "outro";
+
+// 本編の終了画面。ここから先（事後テスト・アンケート）は縦画面なので、横画面ロックを解除して縦持ちを促す
+function GameOutro({ total, onNext }: { total: number; onNext: () => void }) {
+  useEffect(() => {
+    try {
+      (screen.orientation as unknown as { unlock?: () => void })?.unlock?.();
+    } catch {
+      /* 非対応環境は無視 */
+    }
+  }, []);
+  return (
+    <StageScreen step="STEP 2 / 3 クリア" emoji="🏆" title="ゲーム本編クリア！" buttonLabel="事後テストへ →" onNext={onNext}>
+      <p>全{total}問、おつかれさまでした！ ご協力ありがとうございます。</p>
+      <p>最後に、学んだことを確かめる短いテストとアンケートがあります。結果発表はそのあと！</p>
+      <div className="flex items-center gap-3 bg-amber-500/15 border border-amber-500/40 rounded-xl p-3 mt-2">
+        <span className="text-3xl animate-pulse">📱↻</span>
+        <p className="text-amber-200 font-bold">ここからは、スマホを <span className="text-amber-100">縦向き</span> に戻してください。</p>
+      </div>
+    </StageScreen>
+  );
+}
 type PracticeCheck = { move: boolean; look: boolean; inspect: boolean };
 
 export default function GameClient() {
@@ -144,18 +165,7 @@ export default function GameClient() {
     );
   }
   if (stage === "outro") {
-    return (
-      <StageScreen
-        step="STEP 2 / 3 クリア"
-        emoji="🏆"
-        title="ゲーム本編クリア！"
-        buttonLabel="事後テストへ →"
-        onNext={() => router.push("/result")}
-      >
-        <p>全{scenarioOrder.length}問、おつかれさまでした！ ご協力ありがとうございます。</p>
-        <p>最後に、学んだことを確かめる短いテストとアンケートがあります。結果発表はそのあと！</p>
-      </StageScreen>
-    );
+    return <GameOutro total={scenarioOrder.length} onNext={() => router.push("/result")} />;
   }
 
   const inspectedObj = scenario.objects.find((o) => o.id === inspectedId);

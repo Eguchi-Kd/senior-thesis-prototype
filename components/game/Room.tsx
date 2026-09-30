@@ -7,7 +7,7 @@ import * as THREE from "three";
 import type { Scenario } from "@/scenarios/types";
 
 const ROOM_W = 3.6; // 幅(x)
-const ROOM_H = 2.5; // 高さ(y)
+const ROOM_H = 2.7; // 高さ(y)（圧迫感を減らすため 2.5→2.7）
 const ROOM_D = 5.4; // 奥行(z)
 
 // タップ対象を家具・壁の定位置に固定し、全シナリオでレイアウトを安定させる（部屋全体に分散）。
@@ -202,7 +202,7 @@ export function Room({ onInspect, scenario }: { onInspect: (id: string) => void;
     <group>
       {/* ─── 照明（温かい電球色ベース） ─── */}
       <ambientLight intensity={0.5} color="#ffe8cc" />
-      <pointLight position={[0, 2.2, -0.2]} intensity={0.85} color="#ffdca8" castShadow shadow-mapSize={[1024, 1024]} />
+      <pointLight position={[0, 2.4, -0.2]} intensity={0.85} color="#ffdca8" castShadow shadow-mapSize={[1024, 1024]} />
       <pointLight position={[-0.7, 0.95, -2.35]} intensity={0.6} color="#ffd9a0" />
       <directionalLight position={[-3, 2.4, 1.5]} intensity={0.45} color="#fff2e0" />
       <pointLight position={[1.5, 0.6, -0.6]} intensity={0.35} color="#ffcf9a" />
@@ -293,8 +293,8 @@ export function Room({ onInspect, scenario }: { onInspect: (id: string) => void;
       </group>
 
       {/* ─── 天井ペンダント器具 ─── */}
-      <mesh position={[0, 2.5, -0.2]}><cylinderGeometry args={[0.01, 0.01, 0.3, 6]} /><meshStandardMaterial color="#555" /></mesh>
-      <mesh position={[0, 2.32, -0.2]}><coneGeometry args={[0.16, 0.16, 16]} /><meshStandardMaterial color="#5a4632" emissive="#ffdca8" emissiveIntensity={0.6} roughness={0.5} /></mesh>
+      <mesh position={[0, 2.7, -0.2]}><cylinderGeometry args={[0.01, 0.01, 0.3, 6]} /><meshStandardMaterial color="#555" /></mesh>
+      <mesh position={[0, 2.52, -0.2]}><coneGeometry args={[0.16, 0.16, 16]} /><meshStandardMaterial color="#5a4632" emissive="#ffdca8" emissiveIntensity={0.6} roughness={0.5} /></mesh>
 
       {/* ─── デスク（奥壁沿い） ─── */}
       <group position={[0, 0, -2.3]}>
@@ -368,6 +368,33 @@ export function Room({ onInspect, scenario }: { onInspect: (id: string) => void;
         <mesh position={[0, 0.9, 0]}><boxGeometry args={[0.94, 0.04, 0.54]} /><meshStandardMaterial color="#6b6b6b" roughness={0.4} metalness={0.3} /></mesh>
         <mesh position={[-0.2, 1.0, 0]}><cylinderGeometry args={[0.08, 0.09, 0.16, 12]} /><meshStandardMaterial color="#d9d9de" metalness={0.4} roughness={0.3} /></mesh>
         <mesh position={[0.15, 0.97, 0.05]}><cylinderGeometry args={[0.04, 0.035, 0.08, 10]} /><meshStandardMaterial color="#e0e0e0" /></mesh>
+      </group>
+
+      {/* ─── 出入り口のドア（手前の壁・見た目のみ） ─── */}
+      {/* group ローカル: +z が室内向き。壁(z=+HZ)から少し離して z-fighting を回避 */}
+      <group position={[0.35, 0, HZ - 0.02]} rotation={[0, Math.PI, 0]}>
+        {/* 枠（上・左右）：巾木より手前に出して重なりを避ける */}
+        <mesh position={[0, 2.06, 0.02]}><boxGeometry args={[1.03, 0.08, 0.06]} /><meshStandardMaterial color="#e9e1d3" roughness={0.7} /></mesh>
+        {[-0.475, 0.475].map((x, i) => (
+          <mesh key={i} position={[x, 1.02, 0.02]}><boxGeometry args={[0.08, 2.04, 0.06]} /><meshStandardMaterial color="#e9e1d3" roughness={0.7} /></mesh>
+        ))}
+        {/* 扉板 */}
+        <mesh position={[0, 1.0, 0.0]} castShadow receiveShadow><boxGeometry args={[0.86, 2.0, 0.04]} /><meshStandardMaterial color="#9a6b43" roughness={0.65} /></mesh>
+        {/* 浮き彫りパネル（上下2枚） */}
+        {[1.45, 0.55].map((y, i) => (
+          <mesh key={i} position={[0, y, 0.024]}><boxGeometry args={[0.62, i === 0 ? 0.7 : 0.62, 0.01]} /><meshStandardMaterial color="#8a5d38" roughness={0.7} /></mesh>
+        ))}
+        {/* レバーハンドル＋台座（左側・室内向き） */}
+        <mesh position={[-0.33, 1.0, 0.03]}><boxGeometry args={[0.05, 0.14, 0.012]} /><meshStandardMaterial color="#c8c2b6" metalness={0.7} roughness={0.3} /></mesh>
+        <mesh position={[-0.28, 1.03, 0.05]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.011, 0.011, 0.12, 10]} /><meshStandardMaterial color="#d8d2c6" metalness={0.8} roughness={0.25} /></mesh>
+        {/* 鍵穴 */}
+        <mesh position={[-0.33, 0.93, 0.037]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.008, 0.008, 0.004, 10]} /><meshStandardMaterial color="#333" /></mesh>
+        {/* 蝶番（右側） */}
+        {[1.75, 1.0, 0.25].map((y, i) => (
+          <mesh key={i} position={[0.425, y, 0.025]}><boxGeometry args={[0.02, 0.09, 0.012]} /><meshStandardMaterial color="#b9b2a4" metalness={0.6} roughness={0.35} /></mesh>
+        ))}
+        {/* 足元の沓摺（くつずり） */}
+        <mesh position={[0, 0.006, 0.03]}><boxGeometry args={[0.95, 0.012, 0.1]} /><meshStandardMaterial color="#8a7355" roughness={0.6} /></mesh>
       </group>
 
       {/* ─── 隅の観葉植物（手前右） ─── */}

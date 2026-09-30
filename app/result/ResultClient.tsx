@@ -238,9 +238,9 @@ function Section({ title, children, delay = 0 }: { title: string; children: Reac
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay }}
-      className="bg-gray-900 rounded-2xl p-4 mb-4"
+      className="bg-gray-900 rounded-2xl p-3"
     >
-      <p className="text-gray-400 text-xs font-bold mb-3 tracking-wide">{title}</p>
+      <p className="text-gray-400 text-xs font-bold mb-2 tracking-wide">{title}</p>
       {children}
     </motion.div>
   );
@@ -285,162 +285,175 @@ function ScoreScreen({
   const wrongLogs = logs.filter((l) => !l.correct);
 
   return (
-    <div className="min-h-dvh bg-gray-950 flex flex-col items-center px-4 py-8">
-      <div className="w-full max-w-md">
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="text-center mb-5">
-          <div className="text-5xl mb-2">🏆</div>
-          <h1 className="text-white text-3xl font-black mb-2">結果発表</h1>
-          <p className="text-gray-300 text-sm leading-relaxed">
-            研究へのご協力、本当にありがとうございました！<br />
-            あなたの回答が、詐欺から身を守る学び方づくりに役立ちます。
-          </p>
+    <div className="min-h-dvh bg-gray-950 flex flex-col items-center px-3 py-4">
+      <div className="w-full max-w-md landscape:max-w-4xl md:max-w-4xl">
+        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="text-center mb-3">
+          <h1 className="text-white text-2xl font-black">🏆 結果発表</h1>
+          <p className="text-gray-300 text-xs mt-1">研究へのご協力、本当にありがとうございました！ あなたの回答が、詐欺から身を守る学び方づくりに役立ちます。</p>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }} className="bg-blue-600 rounded-2xl p-5 text-center mb-4">
-          <p className="text-blue-200 text-sm mb-1">総合スコア</p>
-          <p className="text-white text-6xl font-black">{totalScore}</p>
-          <p className="text-blue-100 text-xs mt-2">
-            本編 {gameCorrect}/{logs.length} 正解（自力 {selfCorrect}・ヒントあり {hintCorrect}）＋ 事後テスト {postCorrect}/{transferTestLogs.length}
-          </p>
-        </motion.div>
-
-        {/* タイプ診断 */}
-        <motion.div initial={{ opacity: 0, rotateX: -20 }} animate={{ opacity: 1, rotateX: 0 }} transition={{ delay: 0.3 }} className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-5 mb-4 text-white">
-          <p className="text-xs font-bold tracking-[0.2em] opacity-80 mb-2">あなたの詐欺対策タイプ</p>
-          <div className="flex items-center gap-3 mb-2">
-            <span className="text-5xl">{type.emoji}</span>
-            <span className="text-2xl font-black">{type.name}</span>
-          </div>
-          <p className="text-sm leading-relaxed mb-2">{type.desc}</p>
-          <p className="text-xs bg-white/15 rounded-lg p-2 leading-relaxed">💡 {type.tip}</p>
-          <p className="text-sm font-bold mt-3">
-            {stats === undefined
-              ? "集計を読み込み中…"
-              : stats === null
-                ? "（通信できないため、他の人との比較は表示できません）"
-                : enoughPeers
-                  ? `同じタイプは ${stats[`t_${resultType}`] ?? 0} 人（全 ${n} 人中）`
-                  : `まだ参加者が少ないため集計中です（現在 ${n} 人）`}
-          </p>
-          {testRun && <p className="text-[10px] opacity-70 mt-1">※テスト実行のため、あなたの結果は集計に含まれません</p>}
-        </motion.div>
-
-        {/* 事前→事後 */}
-        <Section title="テストの成長（事前 → 事後）" delay={0.4}>
-          {[
-            { label: "事前テスト", v: preCorrect, total: preTestLogs.length, color: "bg-gray-500" },
-            { label: "事後テスト", v: postCorrect, total: transferTestLogs.length, color: "bg-emerald-500" },
-          ].map((b) => (
-            <div key={b.label} className="mb-2">
-              <div className="flex justify-between text-xs text-gray-300 mb-1">
-                <span>{b.label}</span>
-                <span>{b.v} / {b.total} 問正解</span>
+        <div className="grid gap-3 landscape:grid-cols-2 md:grid-cols-2 items-start">
+          {/* ─── 左列：スコア・タイプ・成長 ─── */}
+          <div className="space-y-3">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }} className="bg-blue-600 rounded-2xl px-4 py-3 flex items-center gap-4">
+              <div className="text-center shrink-0">
+                <p className="text-blue-200 text-[11px]">総合スコア</p>
+                <p className="text-white text-4xl font-black leading-none">{totalScore}</p>
               </div>
-              <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${b.total ? (b.v / b.total) * 100 : 0}%` }}
-                  transition={{ delay: 0.6, duration: 0.8 }}
-                  className={`h-full ${b.color} rounded-full`}
-                />
+              <p className="text-blue-100 text-xs leading-relaxed">
+                本編 {gameCorrect}/{logs.length} 正解（自力 {selfCorrect}・ヒントあり {hintCorrect}）<br />
+                事後テスト {postCorrect}/{transferTestLogs.length} 正解
+              </p>
+            </motion.div>
+
+            {/* タイプ診断 */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-4 text-white">
+              <p className="text-[10px] font-bold tracking-[0.2em] opacity-80 mb-1">あなたの詐欺対策タイプ</p>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-4xl">{type.emoji}</span>
+                <span className="text-xl font-black">{type.name}</span>
               </div>
-            </div>
-          ))}
-          <p className="text-xs text-gray-400 mt-2">
-            {postCorrect > preCorrect ? `🎉 ${postCorrect - preCorrect} 問アップ！` : postCorrect === preCorrect ? "キープ！" : "答え合わせで復習しよう"}
-          </p>
-        </Section>
+              <p className="text-xs leading-relaxed mb-2">{type.desc}</p>
+              <p className="text-[11px] bg-white/15 rounded-lg p-2 leading-relaxed">💡 {type.tip}</p>
+              <p className="text-xs font-bold mt-2">
+                {stats === undefined
+                  ? "集計を読み込み中…"
+                  : stats === null
+                    ? "（通信できないため、他の人との比較は表示できません）"
+                    : enoughPeers
+                      ? `同じタイプは ${stats[`t_${resultType}`] ?? 0} 人（全 ${n} 人中）`
+                      : `まだ参加者が少ないため集計中です（現在 ${n} 人）`}
+              </p>
+              {testRun && <p className="text-[10px] opacity-70 mt-1">※テスト実行のため、あなたの結果は集計に含まれません</p>}
+            </motion.div>
 
-        {/* みんなとの比較 */}
-        <Section title="みんなとの比較（本編の正解数）" delay={0.5}>
-          {stats && enoughPeers ? (
-            <PeerHistogram stats={stats} mine={gameCorrect} max={logs.length} />
-          ) : (
-            <p className="text-xs text-gray-400">
-              {stats === null ? "通信できないため表示できません。" : `参加者が ${MIN_PEERS} 人以上集まると、みんなの分布が表示されます。`}
-            </p>
-          )}
-        </Section>
-
-        {/* 本編の結果 */}
-        <Section title="ゲーム本編の結果" delay={0.6}>
-          <div className="space-y-2">
-            {logs.map((log) => {
-              const s = getScenarioById(log.scenarioId);
-              return (
-                <div key={log.scenarioId} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-300 truncate mr-2">
-                    {log.presentationOrder}. {s.title}
-                  </span>
-                  <span className="flex items-center gap-2 shrink-0">
-                    <span className="text-gray-500 text-xs">🔍{log.inspectEvents.length}回・{Math.round(log.reactionTimeMs / 1000)}秒</span>
-                    {log.hintUsed && <span className="text-amber-400 text-xs">💡</span>}
-                    <span className={`font-bold ${log.correct ? "text-green-400" : "text-red-400"}`}>{log.correct ? "○" : "×"}</span>
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </Section>
-
-        {/* 復習（間違えた問題を優先） */}
-        {wrongLogs.length > 0 && (
-          <Section title={`復習しよう（間違えた問題 ${wrongLogs.length}問）`} delay={0.7}>
-            <div className="space-y-3">
-              {wrongLogs.map((l) => {
-                const s = getScenarioById(l.scenarioId);
-                return (
-                  <div key={l.scenarioId} className="bg-gray-800 rounded-xl p-3">
-                    <p className="text-white text-sm font-bold mb-1">{s.title}（{s.isFraud ? "詐欺" : "正常"}）</p>
-                    <p className="text-gray-300 text-xs leading-relaxed mb-2">{s.explanation}</p>
-                    <p className="text-blue-300 text-xs leading-relaxed">📚 {s.learningPoint}</p>
+            {/* 事前→事後 */}
+            <Section title="テストの成長（事前 → 事後）" delay={0.3}>
+              {[
+                { label: "事前", v: preCorrect, total: preTestLogs.length, color: "bg-gray-500" },
+                { label: "事後", v: postCorrect, total: transferTestLogs.length, color: "bg-emerald-500" },
+              ].map((bar) => (
+                <div key={bar.label} className="flex items-center gap-2 mb-1.5">
+                  <span className="text-xs text-gray-300 w-8 shrink-0">{bar.label}</span>
+                  <div className="flex-1 h-3 bg-gray-800 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${bar.total ? (bar.v / bar.total) * 100 : 0}%` }}
+                      transition={{ delay: 0.5, duration: 0.8 }}
+                      className={`h-full ${bar.color} rounded-full`}
+                    />
                   </div>
-                );
-              })}
+                  <span className="text-xs text-gray-300 w-12 text-right shrink-0">{bar.v}/{bar.total}</span>
+                </div>
+              ))}
+              <p className="text-xs text-gray-400 mt-1">
+                {postCorrect > preCorrect ? `🎉 ${postCorrect - preCorrect} 問アップ！` : postCorrect === preCorrect ? "キープ！" : "答え合わせで復習しよう"}
+              </p>
+            </Section>
+          </div>
+
+          {/* ─── 右列：比較・詳細（開閉式）・コレクション ─── */}
+          <div className="space-y-3">
+            <Section title="みんなとの比較（本編の正解数）" delay={0.4}>
+              {stats && enoughPeers ? (
+                <PeerHistogram stats={stats} mine={gameCorrect} max={logs.length} />
+              ) : (
+                <p className="text-xs text-gray-400">
+                  {stats === null ? "通信できないため表示できません。" : `参加者が ${MIN_PEERS} 人以上集まると、みんなの分布が表示されます。`}
+                </p>
+              )}
+            </Section>
+
+            <Collapsible title={`ゲーム本編の結果（${gameCorrect}/${logs.length}）`}>
+              <div className="space-y-1.5">
+                {logs.map((log) => {
+                  const s = getScenarioById(log.scenarioId);
+                  return (
+                    <div key={log.scenarioId} className="flex items-center justify-between text-sm">
+                      <span className="text-gray-300 truncate mr-2">{log.presentationOrder}. {s.title}</span>
+                      <span className="flex items-center gap-2 shrink-0">
+                        <span className="text-gray-500 text-xs">🔍{log.inspectEvents.length}回・{Math.round(log.reactionTimeMs / 1000)}秒</span>
+                        {log.hintUsed && <span className="text-amber-400 text-xs">💡</span>}
+                        <span className={`font-bold ${log.correct ? "text-green-400" : "text-red-400"}`}>{log.correct ? "○" : "×"}</span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </Collapsible>
+
+            {wrongLogs.length > 0 && (
+              <Collapsible title={`復習しよう（間違えた問題 ${wrongLogs.length}問）`}>
+                <div className="space-y-2">
+                  {wrongLogs.map((l) => {
+                    const s = getScenarioById(l.scenarioId);
+                    return (
+                      <div key={l.scenarioId} className="bg-gray-800 rounded-xl p-3">
+                        <p className="text-white text-sm font-bold mb-1">{s.title}（{s.isFraud ? "詐欺" : "正常"}）</p>
+                        <p className="text-gray-300 text-xs leading-relaxed mb-2">{s.explanation}</p>
+                        <p className="text-blue-300 text-xs leading-relaxed">📚 {s.learningPoint}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Collapsible>
+            )}
+
+            <Collapsible title="テストの答え合わせ">
+              <AnswerReview label="事前テスト" logs={preTestLogs} />
+              <AnswerReview label="事後テスト" logs={transferTestLogs} />
+            </Collapsible>
+
+            {/* コレクション */}
+            <div className="bg-gray-900 rounded-2xl p-3">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-white text-sm shrink-0">📇 収集率</span>
+                <div className="flex-1 h-2.5 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-400" style={{ width: `${(collected / TOTAL_CARDS) * 100}%` }} />
+                </div>
+                <span className="text-white font-black text-sm shrink-0">{collected}/{TOTAL_CARDS}</span>
+              </div>
+              <Link href="/collection" className="block w-full py-2 text-center bg-indigo-600 text-white rounded-xl font-bold text-sm">
+                コレクションを見る
+              </Link>
             </div>
-          </Section>
-        )}
 
-        {/* テストの答え合わせ */}
-        <Section title="テストの答え合わせ" delay={0.8}>
-          <AnswerReview label="事前テスト" logs={preTestLogs} />
-          <AnswerReview label="事後テスト" logs={transferTestLogs} />
-        </Section>
+            {/* 参加者コード・保存状態 */}
+            <div className="bg-gray-900 rounded-2xl p-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-gray-400 text-[10px]">参加者コード</p>
+                <p className="text-white text-lg font-mono font-black tracking-widest leading-tight">{toParticipantCode(sessionId)}</p>
+              </div>
+              <p className={`text-[11px] text-right ${save.pending > 0 ? "text-amber-300" : save.lastError ? "text-red-300" : "text-emerald-300"}`}>
+                {save.pending > 0
+                  ? "⏳ 送信待ち（通信が戻ると自動送信）"
+                  : save.lastError
+                    ? "⚠ 送信失敗。スタッフにお知らせください"
+                    : "✓ データ送信済み"}
+              </p>
+            </div>
 
-        {/* コレクション */}
-        <Section title="学習カード コレクション" delay={0.9}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-white text-sm">収集率</span>
-            <span className="text-white font-black">{collected} / {TOTAL_CARDS}</span>
+            <button onClick={onReplay} className="w-full py-3 bg-blue-600 text-white font-black rounded-2xl">
+              もう一度プレイ →
+            </button>
           </div>
-          <div className="h-2.5 bg-gray-800 rounded-full overflow-hidden mb-3">
-            <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-400" style={{ width: `${(collected / TOTAL_CARDS) * 100}%` }} />
-          </div>
-          <Link href="/collection" className="block w-full py-3 text-center bg-indigo-600 text-white rounded-xl font-bold text-sm">
-            📇 コレクションを見る
-          </Link>
-        </Section>
-
-        {/* 参加者コード・保存状態 */}
-        <div className="bg-gray-900 rounded-2xl p-4 mb-5 text-center">
-          <p className="text-gray-400 text-xs mb-1">参加者コード</p>
-          <p className="text-white text-2xl font-mono font-black tracking-widest">{toParticipantCode(sessionId)}</p>
-          <p className={`text-xs mt-2 ${save.pending > 0 ? "text-amber-300" : save.lastError ? "text-red-300" : "text-emerald-300"}`}>
-            {save.pending > 0
-              ? "⏳ データ送信待ち（通信が戻ると自動で送信されます）"
-              : save.lastError
-                ? "⚠ 送信に失敗しました。スタッフにお知らせください"
-                : "✓ データ送信済み"}
-          </p>
         </div>
-
-        <p className="text-center text-gray-400 text-xs mb-4">ご参加ありがとうございました！ 🙏</p>
-
-        <button onClick={onReplay} className="w-full py-4 bg-blue-600 text-white text-lg font-black rounded-2xl">
-          もう一度プレイ →
-        </button>
+        <p className="text-center text-gray-500 text-xs mt-3">ご参加ありがとうございました！ 🙏</p>
       </div>
     </div>
+  );
+}
+
+// 開閉式のセクション（初期は閉じる）
+function Collapsible({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <details className="bg-gray-900 rounded-2xl p-3 group">
+      <summary className="cursor-pointer list-none flex items-center justify-between text-sm text-white font-bold">
+        <span>{title}</span>
+        <span className="text-gray-400 text-xs transition-transform group-open:rotate-180">▼</span>
+      </summary>
+      <div className="mt-3">{children}</div>
+    </details>
   );
 }
 
