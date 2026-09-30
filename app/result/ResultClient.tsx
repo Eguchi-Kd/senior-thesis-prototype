@@ -11,7 +11,8 @@ import { QuizRunner } from "@/components/ui/QuizRunner";
 import { StageScreen } from "@/components/ui/StageScreen";
 import { LikertButtons } from "@/components/ui/LikertButtons";
 import { getScenarioById } from "@/lib/scenarios";
-import { diagnosePlayerType, PLAYER_TYPES, type PlayerTypeId } from "@/lib/playerType";
+import { computeProfile, diagnosePlayerType, PLAYER_TYPES, type PlayerTypeId } from "@/lib/playerType";
+import { RadarChart } from "@/components/ui/RadarChart";
 import { fetchStats, submitStats, DEMO_STATS, withSelf, type DemoPreset, type Stats } from "@/lib/stats";
 import { addToCollection, loadCollection, typeCardId } from "@/lib/collection";
 import { TOTAL_CARDS } from "@/lib/cards";
@@ -281,6 +282,7 @@ function ScoreScreen({
   const postCorrect = transferTestLogs.filter((l) => l.correct).length;
   const totalScore = gameCorrect * 15 + postCorrect * 10;
   const type = PLAYER_TYPES[resultType];
+  const profile = computeProfile(logs);
   // ダミー表示中は、本番で自分の加算後に取得した場合と同じく自分の結果を1人分含める
   const stats = demo ? withSelf(DEMO_STATS[demo].stats, gameCorrect, postCorrect, resultType) : realStats;
   const n = stats?.n ?? 0;
@@ -330,8 +332,25 @@ function ScoreScreen({
                 <span className="text-4xl">{type.emoji}</span>
                 <span className="text-xl font-black">{type.name}</span>
               </div>
-              <p className="text-xs leading-relaxed mb-2">{type.desc}</p>
-              <p className="text-[11px] bg-white/15 rounded-lg p-2 leading-relaxed">💡 {type.tip}</p>
+              <div className="flex flex-col items-center gap-2 min-[420px]:flex-row min-[420px]:items-start">
+                <div className="flex-1">
+                  <p className="text-xs leading-relaxed mb-1.5">{type.desc}</p>
+                  <p className="text-[11px] leading-relaxed opacity-90 mb-2">📋 判定理由：{type.rule}</p>
+                  <p className="text-[11px] bg-white/15 rounded-lg p-2 leading-relaxed">💡 {type.tip}</p>
+                </div>
+                <div className="flex flex-col items-center">
+                  <RadarChart
+                    axes={[
+                      { label: "見破る", value: profile.detect },
+                      { label: "見極める", value: profile.discern },
+                      { label: "見比べる", value: profile.compare },
+                      { label: "じっくり", value: profile.patience },
+                      { label: "自力", value: profile.selfReliance },
+                    ]}
+                  />
+                  <p className="text-[9px] opacity-60 -mt-1">本編6問からのざっくりの目安</p>
+                </div>
+              </div>
               <p className="text-xs font-bold mt-2">
                 {stats === undefined
                   ? "集計を読み込み中…"
@@ -342,6 +361,9 @@ function ScoreScreen({
                       : `まだ参加者が少ないため集計中です（現在 ${n} 人）`}
               </p>
               {testRun && <p className="text-[10px] opacity-70 mt-1">※テスト実行のため、あなたの結果は集計に含まれません</p>}
+              <p className="text-[10px] opacity-55 mt-2 leading-snug">
+                ※ゲーム本編6問の回答から簡易的に判定したものです。実力や性格を正確に表すものではありません。
+              </p>
             </motion.div>
 
             {/* 事前→事後 */}
