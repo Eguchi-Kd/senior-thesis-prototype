@@ -57,12 +57,14 @@ export default function GameClient() {
 
   const handleInspect = (id: string) => {
     if (inspectedId || showJudge || lastResult) return;
-    setInspectedId(id);
     if (inPractice) {
+      setInspectedId(id);
       setPractice((p) => (p.inspect ? p : { ...p, inspect: true }));
       return;
     }
+    // 記録できない状態ではパネルも開かない（開いたのに記録されない、を防ぐ）
     if (phase !== "exploring" && phase !== "investigating") return;
+    setInspectedId(id);
     recordInspect(id);
     setPhase("investigating");
     startTimer(); // シナリオ内で最初の調査時のみ計測開始（store側でガード）

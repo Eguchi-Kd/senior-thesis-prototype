@@ -15,8 +15,8 @@ export function toParticipantCode(sessionId: string): string {
   return (sessionId.split("_").pop() ?? sessionId).slice(0, 6).toUpperCase();
 }
 
-// 現在のストア状態から Firestore 保存用ペイロードを組み立てる
-function buildPayload() {
+// 現在のストア状態から Firestore 保存用ペイロードを組み立てる（analysis/simulate_sessions.ts でも使用）
+export function buildPayload() {
   const s = useGameStore.getState();
   return {
     sessionId: s.sessionId,

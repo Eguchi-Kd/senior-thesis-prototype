@@ -1,74 +1,33 @@
 # TODO リスト
 
 ステータス凡例: `[ ]` 未着手 / `[>]` 進行中 / `[x]` 完了 / `[!]` ブロック中
+最終更新：2026-09-30
 
----
+## パイロット（次にやること）
+- [ ] 実機（Android Chrome / iOS Safari）で `?test=1` の通しプレイ：横向き・文字・スクロール・操作練習・再読み込みからの再開・オフライン→復帰
+- [ ] パイロット実施（5〜8名、docs/パイロット実施手順.md）
+- [ ] パイロットのデータを export → validate_export.py で ERROR 0 件を確認
+- [ ] 所要時間を確認し、倫理申請の「約10分」との差に対応
+- [ ] 聞き取り結果から「どの通知が詐欺か」を選ぶUIの要否を判断
+- [ ] ダミー導入後のゲーム内6問を難易度ルーブリックで再採点
+- [ ] 修正を contentVersion に反映し、分析計画を再固定
 
-## 緊急（デプロイ修正）
+## 本実験
+- [ ] 大学祭（2026年11月）で本実験
+- [ ] 項目分析スクリプト（D-12：正答率・点双列相関・d′）
 
-- [x] `next.config.ts` に `output: 'export'`, `basePath`, `trailingSlash` を追加
-- [x] `.github/workflows/deploy.yml` を作成（GitHub Actions 自動デプロイ）
-- [ ] `deploy.yml` の `node-version: 20` → `22` に変更してプッシュ
-- [!] GitHubリポジトリ Settings → Pages → Source: **GitHub Actions** に設定（ユーザー操作必須）
-- [!] GitHubリポジトリを **Public** に変更（ユーザー操作必須）
+## 後回し
+- [ ] 効果音（howler 導入済み・未使用）
+- [ ] 3Dモデル（GLB読み込み基盤あり）
+- [ ] 部屋の衝突判定
 
----
-
-## Phase 4: 残シナリオ実装
-
-- [ ] `scenarios/scenario2.ts` — 社員証 × セキュリティアラートメール
-- [ ] `scenarios/scenario3.ts` — 領収書 × 催促メール（架空請求）
-- [ ] `scenarios/scenario4.ts` — ポスター × 改ざんQRコード
-- [ ] `app/game/GameClient.tsx` を複数シナリオ対応に更新（scenario1 ハードコード → store から動的取得）
-
----
-
-## Phase 4: 転移テスト・結果画面
-
-- [ ] `app/result/page.tsx` — 転移テスト問題 + 最終スコア表示
-- [ ] 転移テスト問題設計（未学習の詐欺パターン 3〜5 問）
-- [ ] Firestore への最終セッション保存（`saveSession()` 呼び出し）
-
----
-
-## Firebase 連携
-
-- [ ] Firebase プロジェクト作成（コンソール）
-- [ ] `.env.local` に NEXT_PUBLIC_FIREBASE_* 環境変数を設定（`.env.local.example` を参照）
-- [ ] GitHub Actions の Secrets に Firebase 環境変数を追加（デプロイ時のビルドに必要）
-- [ ] Firestore セキュリティルール設定（書き込み許可、読み取り制限）
-
----
-
-## 没入感・品質向上
-
-- [ ] `@react-three/postprocessing` でブルーム・ヴィネット追加
-- [ ] howler.js で環境音・UI効果音追加
-- [ ] 3Dモデル（Blender → GLB/DRACO圧縮）を `public/models/` に配置・`useGLTF` でロード
-
----
-
-## スマホ最適化
-
-- [ ] Android Chrome / iOS Safari での実機動作確認
-- [ ] nipplejs ゾーンのタッチ感度調整
-- [ ] 描画負荷チェック（`stats.js` or R3F `perf` で FPS 計測）
-- [ ] テクスチャ KTX2/BasisU 圧縮（GPU メモリ節約）
-
----
-
-## 完了済み
-
-- [x] Node.js / pnpm / Next.js 15.3.3 + TypeScript セットアップ
-- [x] 全依存パッケージインストール（R3F, drei, zustand, nipplejs, firebase 等）
-- [x] GitHub リポジトリ作成・初回プッシュ
-- [x] Box Geometry 仮部屋（壁・床・天井・机）`Room.tsx`
-- [x] FPS 一人称カメラ（PC: WASD, モバイル: nipplejs + タッチスワイプ）`FPSControls.tsx`
-- [x] Zustand ゲーム状態管理（RT タイマー・フェーズ・ログ）`store/gameStore.ts`
-- [x] シナリオ1（カレンダー × SMS フィッシング）`scenarios/scenario1.ts`
-- [x] 確信度スライダー UI `components/ui/ConfidenceSlider.tsx`
-- [x] フィードバックカード UI `components/ui/FeedbackCard.tsx`
-- [x] Firebase 初期化 + Firestore ログ送信基盤 `lib/firebase.ts`, `lib/logger.ts`
-- [x] SSR 無効化（`dynamic(..., { ssr: false })`）`app/game/page.tsx` + `GameClient.tsx`
-- [x] GitHub Pages 用 `next.config.ts` 設定
-- [x] GitHub Actions ワークフロー `deploy.yml`
+## 完了済み（主なもの）
+- [x] GitHub Pages 配信＋Firestore（書き込みのみ）のハイブリッド構成
+- [x] 同意→属性→事前テスト→本編（練習つき）→事後テスト→アンケート→結果発表の流れ
+- [x] 本編6問（詐欺4・安全2）、4オブジェクト常設＋ダミー通知、見る場所だけのヒント、調べ直し
+- [x] 事前/事後テスト 各6問（詐欺3・安全3）、フォームのカウンターバランスと出題順シャッフル
+- [x] ログ：調査イベント、ヒント、フェーズ時刻、非表示時間、再開、版、端末情報
+- [x] セッションの再開（sessionStorage）、Firestore オフライン永続化、保存状態の表示
+- [x] 結果発表：タイプ診断、みんなとの比較（匿名集計 stats/festival2026）、答え合わせ、復習、学習カードのコレクション
+- [x] lint の修正、操作の delta 化、背景色バグ修正
+- [x] エクスポート・再現プレイ・検証スクリプト、分析計画、パイロット手順、ログ検証報告

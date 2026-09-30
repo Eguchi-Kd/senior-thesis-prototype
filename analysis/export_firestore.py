@@ -14,6 +14,7 @@ Firestore の sessions コレクションを Admin SDK で全件取得し、分�
 import os
 import sys
 import csv
+import json
 import argparse
 from datetime import datetime
 
@@ -35,6 +36,17 @@ def init_client():
     cred = credentials.Certificate(key)
     firebase_admin.initialize_app(cred)
     return firestore.client()
+
+
+class JsonDoc:
+    """JSONの1セッションを Firestore の DocumentSnapshot と同じ使い方にする"""
+
+    def __init__(self, d):
+        self._d = d
+        self.id = d.get("sessionId", "")
+
+    def to_dict(self):
+        return self._d
 
 
 def g(d, key, default=""):
@@ -94,6 +106,9 @@ def flatten_sessions(docs, include_test):
             "deviceInfo_ua": g(dev, "ua"),
             "deviceInfo_screen": g(dev, "screen"),
             "deviceInfo_language": g(dev, "language"),
+            "deviceInfo_viewport": g(dev, "viewport"),
+            "deviceInfo_touch": g(dev, "touch"),
+            "deviceInfo_orientation": g(dev, "orientation"),
             "ageGroup": g(demo, "ageGroup"),
             "occupation": g(demo, "occupation"),
             "gender": g(demo, "gender"),
@@ -189,10 +204,16 @@ def write_csv(path, rows):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--include-test", action="store_true", help="testRun=Trueのセッションも含める")
+    ap.add_argument("--from-json", help="Firestoreの代わりにJSON（simulate_sessions の出力など）から読み込む")
     args = ap.parse_args()
 
-    db = init_client()
-    docs = list(db.collection("sessions").stream())
+    if args.from_json:
+        with open(args.from_json, encoding="utf-8") as f:
+            raw = json.load(f)
+        docs = [JsonDoc(d) for d in raw]
+    else:
+        db = init_client()
+        docs = list(db.collection("sessions").stream())
     sessions, trials, tests = flatten_sessions(docs, args.include_test)
 
     outdir = os.path.join(HERE, "data", "export_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
@@ -204,6 +225,7 @@ def main():
     print(f"取得ドキュメント: {len(docs)} 件（テスト除外後 sessions={len(sessions)}）")
     print(f"trials={len(trials)} / tests={len(tests)}")
     print(f"出力先: {outdir}")
+    print(f"検証: python validate_export.py \"{outdir}\"")
 
 
 if __name__ == "__main__":
