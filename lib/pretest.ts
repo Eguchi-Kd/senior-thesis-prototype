@@ -25,12 +25,12 @@ export const preTestQuestions: TestQuestion[] = [
     isFraud: true,
     difficulty: "hard",
     details: {
-      senderAddress: "support@amazon-alert.com",
-      url: "https://amazon.co.jp.account-verify.info/login",
-      officialInfo: "いつも使っている通販サイトの公式サイトは amazon.co.jp",
+      senderAddress: "support@kotori-shop-alert.com",
+      url: "https://kotori-shop.co.jp.account-verify.info/login",
+      officialInfo: "いつも使っている通販サイトの公式サイトは kotori-shop.co.jp",
     },
     explanation:
-      "URLの「//」の後から最初の「/」まで（amazon.co.jp.account-verify.info）がサイト名で、このサイトを登録しているのは右端の「account-verify.info」の部分です。先頭の「amazon.co.jp」は公式と同じ文字ですが、その前に付けた飾りにすぎず、公式の amazon.co.jp とは別のサイトです。https でも、偽サイトであることは変わりません。気になるときはリンクを開かず、公式アプリや自分で開いた公式サイトから確認しましょう。",
+      "URLの「//」の後から最初の「/」まで（kotori-shop.co.jp.account-verify.info）がサイト名で、このサイトを登録しているのは右端の「account-verify.info」の部分です。先頭の「kotori-shop.co.jp」は公式と同じ文字ですが、その前に付けた飾りにすぎず、公式の kotori-shop.co.jp とは別のサイトです。https でも、偽サイトであることは変わりません。気になるときはリンクを開かず、公式アプリや自分で開いた公式サイトから確認しましょう。",
   },
   {
     id: "PRE_F3",

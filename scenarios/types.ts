@@ -5,10 +5,10 @@ export type Difficulty = "easy" | "medium" | "hard";
 
 export interface DigitalContent {
   type: "sms" | "email" | "app" | "system";
-  sender: string; // 表示名（例: Amazon）
-  senderAddress?: string; // 実アドレス/ドメイン（例: info@amazon-jp.delivery-support.com）
+  sender: string; // 表示名（例: はやぶさ運輸）
+  senderAddress?: string; // 実アドレス/ドメイン（例: info@hayabusa-saihai.info）
   body: string;
-  url?: string; // リンク先URL（例: http://amazon-jp.delivery-support.com/redelivery）
+  url?: string; // リンク先URL（例: http://hayabusa-saihai.info/redelivery）
   timestamp: string;
 }
 

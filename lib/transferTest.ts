@@ -41,12 +41,12 @@ export const transferTestQuestions: TestQuestion[] = [
     isFraud: true,
     difficulty: "hard",
     details: {
-      senderAddress: "security@mizuho-alert.com",
-      url: "https://mizuhobank.co.jp.secure-login.info/verify",
-      officialInfo: "取引している銀行の公式サイトは mizuhobank.co.jp",
+      senderAddress: "security@hoshizora-alert.com",
+      url: "https://hoshizora-bank.co.jp.secure-login.info/verify",
+      officialInfo: "取引している銀行の公式サイトは hoshizora-bank.co.jp",
     },
     explanation:
-      "URLの「//」の後から最初の「/」まで（mizuhobank.co.jp.secure-login.info）がサイト名で、このサイトを登録しているのは右端の「secure-login.info」の部分です。先頭の「mizuhobank.co.jp」は公式と同じ文字ですが、その前に付けた飾りにすぎず、公式の mizuhobank.co.jp とは別のサイトです。https でも偽サイトであることは変わりません。銀行の確認は、公式アプリや自分で開いた公式サイトから行いましょう。",
+      "URLの「//」の後から最初の「/」まで（hoshizora-bank.co.jp.secure-login.info）がサイト名で、このサイトを登録しているのは右端の「secure-login.info」の部分です。先頭の「hoshizora-bank.co.jp」は公式と同じ文字ですが、その前に付けた飾りにすぎず、公式の hoshizora-bank.co.jp とは別のサイトです。https でも偽サイトであることは変わりません。銀行の確認は、公式アプリや自分で開いた公式サイトから行いましょう。",
   },
   {
     id: "POST_F3",

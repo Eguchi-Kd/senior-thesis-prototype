@@ -8,7 +8,7 @@ export const scenario1: Scenario = {
   description: "部屋を探索して、状況を確認しよう",
   anomaly: {
     type: "sms_phishing",
-    clue: "通知のサイト（sagawa-saihai.info）がメモにある公式サイト（sagawa-exp.co.jp）と一致しない。在宅予定との食い違いは補助",
+    clue: "通知のサイト（hayabusa-saihai.info）がメモにある公式サイト（hayabusa-unyu.co.jp）と一致しない。在宅予定との食い違いは補助",
   },
   hint: "メモにある公式サイトと、通知の送信元・リンク先のサイト名（「//」の後〜最初の「/」）を見比べよう。カレンダーの予定も参考に。",
   relevantIds: ["receipt", "smartphone"],
@@ -22,7 +22,7 @@ export const scenario1: Scenario = {
     {
       id: "receipt",
       label: "メモ",
-      content: "メモ\n・ブックマークしている公式サイト\n　佐川急便：sagawa-exp.co.jp\n　ヤマト運輸：kuronekoyamato.co.jp\n・買うもの：牛乳、洗濯用洗剤",
+      content: "メモ\n・ブックマークしている公式サイト\n　はやぶさ運輸：hayabusa-unyu.co.jp\n　つばめ便：tsubame-bin.co.jp\n・買うもの：牛乳、洗濯用洗剤",
     },
     {
       id: "poster",
@@ -35,10 +35,10 @@ export const scenario1: Scenario = {
       content: [
         {
           type: "sms",
-          sender: "佐川急便",
-          senderAddress: "sagawa@sagawa-saihai.info",
+          sender: "はやぶさ運輸",
+          senderAddress: "info@hayabusa-saihai.info",
           body: "本日お届けにあがりましたがご不在でした。再配達のお申し込みはこちらから。",
-          url: "http://sagawa-saihai.info/redelivery",
+          url: "http://hayabusa-saihai.info/redelivery",
           timestamp: "6/29 15:00",
         },
         {
@@ -58,10 +58,10 @@ export const scenario1: Scenario = {
   ],
   isFraud: true,
   explanation:
-    "メモには、ブックマークしてある佐川急便の公式サイト「sagawa-exp.co.jp」があります。通知は佐川急便を名乗っていますが、送信元もリンク先も「sagawa-saihai.info」で、公式サイトと一致しません。さらに、カレンダーでは一日中家にいる予定なのに「不在でした」と届いています（インターホンに気づかなかった可能性もあるので、これだけで決めつけることはできません）。公式と一致しないサイトへ誘導していることが決め手となり、詐欺（フィッシングSMS）と判断できます。",
+    "メモには、ブックマークしてあるはやぶさ運輸の公式サイト「hayabusa-unyu.co.jp」があります。通知ははやぶさ運輸を名乗っていますが、送信元もリンク先も「hayabusa-saihai.info」で、公式サイトと一致しません。さらに、カレンダーでは一日中家にいる予定なのに「不在でした」と届いています（インターホンに気づかなかった可能性もあるので、これだけで決めつけることはできません）。公式と一致しないサイトへ誘導していることが決め手となり、詐欺（フィッシングSMS）と判断できます。",
   learningPoint: "不在通知が気になったら、SMSのリンクは開かず、ブックマークや自分で入れた公式アプリから配達状況を確かめましょう。送信元の名前は簡単に偽れるので、名前ではなくサイト名（ドメイン）が公式と一致するかを見ることが大切です。",
   keyPoints: {
-    basis: "通知のサイト（sagawa-saihai.info）が、メモにある公式サイト（sagawa-exp.co.jp）と一致しない",
+    basis: "通知のサイト（hayabusa-saihai.info）が、メモにある公式サイト（hayabusa-unyu.co.jp）と一致しない",
     compared: "メモの公式サイト ↔ 通知の送信元・リンク先（補助：カレンダーの在宅予定）",
     action: "SMSのリンクは開かず、ブックマークや公式アプリから配達状況を確かめる",
   },
