@@ -11,14 +11,19 @@
 - 企業名の架空化と教材版更新、カード絵文字の追加を確認。正答条件の変更なし。
 
 ## Last Work
-Claude Code（2026-10-02）：Codex の docs/release-followup-review.md（B1〜B4）に対応。最終配信 `e9d0754`、contentVersion `2026-10-08`、schemaVersion 4。
-- B1：本編で「戻る」→自動で本編へ戻るとヒント・調査・計測が消えていた不具合を修正。`scenarioStartedIndex` で同じページ内の再入場を新しい問題の開始と区別し、途中状態を保持（開いたままの調査は閉じた扱い）。新しい問題・再読み込みは従来どおりリセット（再読み込みは restarted）。別画面へ送る入場では計測を始めない
-- B2：緊急停止ルールのコメント修正（拒否された書き込みは自動再送されない）、チェックリストに停止中・復旧時の運用（受付停止・参加者コード記録・結果画面で再送・欠損記録）
-- B4：version.ts に版の方針（記録に影響する変更で上げる、表示のみはコミットで記録）を明記、版を 2026-10-08 に、分析計画に再入場の扱いを注記
-- 本収集は 10/3（ユーザー確定）。本収集で記録するコミットは `e9d0754` 以降の最終配信
+Claude Code（2026-10-02）：友人のテストプレイ感想（11項目）に対応。最終配信 `ea24d1c`、contentVersion `2026-10-09`、schemaVersion 5。本収集は 10/3。
+- 答えの漏れ修正：PRE_F2/POST_F2 の「普段の案内に似た」削除、PRE_S1/POST_S1 の「リンクや入力の要求はありません」削除＋正規リンク付与、S3 の「（突然表示）」削除
+- S3 の偽警告をブラウザの警告画面風に表示（DigitalContent.type に "alert"）、テストの公式情報を枠付きで強調
+- 練習：移動・見回し→スマホと部屋の情報の両方（順番は自由）→ヒント→判定（記録なし・正解なし）。自由プレイは練習を省略可（t_practiceSkipped）
+- 問題開始の「第n問 / 全6問」（特定の物へ誘導しない文言）、進捗バーに「あとn問でクリア！」
+- この端末に過去のプレイ記録がある状態で「はじめて遊ぶ」→本人が初めてか確認（firstTimeConfirmed）
+- 見送り：ストーリー演出（事後だけ“ラスボス”扱いは意欲の交絡になる。本収集後に対称な演出を検討）、スマホへの誘導（ラベル強調・自動で開く：探索の記録に影響するためユーザー判断で不採用）
+- **GitHub Pages の配信元が legacy（master ブランチを Jekyll で公開）に切り替わっていて、README のページが公開されていた**。build_type を workflow に戻して再デプロイ（ゲームの公開を確認）
 
 ## Changed Files
-- `store/gameStore.ts`（markScenarioStart の再入場判定）、`app/game/GameClient.tsx`、`analysis/check_store.mjs`（13ケース）、`analysis/simulate_sessions.ts`、`scripts/check_navigation.cjs`（回答ログ・sessionId の不変も確認）、`firestore.rules.lockdown`、`lib/version.ts`、`analysis/items.json`、`docs/{公開前チェックリスト,分析計画,パイロット実施手順}.md`
+- `lib/pretest.ts`・`lib/transferTest.ts`・`scenarios/scenario3.ts`・`scenarios/practice.ts`・`scenarios/types.ts`
+- `app/game/GameClient.tsx`・`app/page.tsx`・`components/ui/QuizRunner.tsx`・`store/gameStore.ts`・`lib/logger.ts`・`lib/version.ts`
+- `analysis/export_firestore.py`（firstTimeConfirmed・t_practiceSkipped）・`analysis/items.json`・`docs/{分析計画,公開前チェックリスト,パイロット実施手順}.md`
 
 ## Decisions
 - 今回はレビュー。B1の実装修正は未実施。新規問題や全面改修は不要。
@@ -27,11 +32,10 @@ Claude Code（2026-10-02）：Codex の docs/release-followup-review.md（B1〜B
 - 本収集開始と試遊の区別を確定し、最終検証後は配信を固定する。DB削除・ルール適用は未実施。
 
 ## Verification
-- tsc・lint・CI（e9d0754）成功
-- `node analysis/check_store.mjs`：13/13 OK（再入場でヒント・調査・開始時刻を保持／ログにヒント使用が残る／次の問題でリセット／再読み込みでリセット＋restarted）
-- `node scripts/check_navigation.cjs <公開URL>`：11/11 OK（回答ログ・sessionId の不変も確認）
-- Codex の実ブラウザ再現 `analysis/data/release-followup.cjs <公開URL>`：戻る前後で hintUsed・調査履歴が一致、最終ログ hintUsed=true、終了コード0
-- 未確認：実機（Android/iOS）のタッチ・通信断からの復帰（チェックリスト1）
+- tsc・lint・check_store 13/13・再現データ validate ERROR 0・CI（ea24d1c）成功
+- 公開ページ：check_navigation 11/11 OK。Codex の実ブラウザ再現を新しい練習の流れに合わせた版（scratchpad の release-followup-v2）で2回成功（戻る前後でヒント・調査の記録が保持、最終ログ hintUsed=true）。練習の流れを実クリックで最後まで通過
+- 画面確認（ヘッドレス Edge）：初回確認ダイアログ、2回目以降→自由プレイ、自由プレイの練習省略、第n問の表示（DOM）、あとn問、S3 の警告画面
+- 未確認：実機（Android/iOS）・通信断からの復帰。Pages 設定が切り替わった原因は不明（誰かが Settings → Pages を変更した可能性）
 
 ## Known Issues
 - B1：戻る→復帰でヒント・調査・計測を消し、やり直しを識別できない。自力判定と本編の行動・RT分析に影響。
