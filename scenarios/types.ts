@@ -34,6 +34,7 @@ export interface Scenario {
   difficulty: Difficulty;
   explanation: string;
   learningPoint: string;
+  cardEmoji?: string; // 学習カードの絵文字（カードの内容を表す。操作練習では省略）
   // 解説の要点（先に短く見せ、詳しい解説は開閉式にする）。操作練習では省略
   keyPoints?: {
     basis: string; // 今回の根拠

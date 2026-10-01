@@ -16,7 +16,7 @@ export const CARDS: CardDef[] = [
   ...allScenarios.map((s) => ({
     id: scenarioCardId(s.id),
     kind: "scenario" as const,
-    emoji: s.isFraud ? "🚨" : "✅",
+    emoji: s.cardEmoji ?? (s.isFraud ? "🚨" : "✅"),
     title: s.title,
     body: s.learningPoint,
     howToGet: "ゲーム本編でこの問題に正解する",

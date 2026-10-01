@@ -59,6 +59,7 @@ export const scenario4: Scenario = {
   explanation:
     "URLの「//」の後から最初の「/」まで（aomori-fes.ac.jp.login-check.info）がサイト名です。このサイトを登録しているのは右端の「login-check.info」の部分で、先頭の「aomori-fes.ac.jp」はその前に付けた飾りにすぎません。ポスターの公式サイト（aomori-fes.ac.jp）とは別のサイトです。また、ポスターには「ログイン不要」とあるのに、ログインを求めています。https で始まっていても安全とは限りません。偽サイトへ誘導するQRコードと判断できます。",
   learningPoint: "サイト名（「//」の後〜最初の「/」）の右端が、公式として確認したドメインと同じかを見ます。QRコードで開いたページでは、何かを入力する前にポスターなどの公式情報と見比べ、食い違えば公式サイトを自分で検索して開きましょう。",
+  cardEmoji: "📷",
   keyPoints: {
     basis: "サイト名の右端が login-check.info で、ポスターの公式サイト aomori-fes.ac.jp と違う。不要なはずのログインも求めている",
     compared: "ポスターの公式サイトと注意書き ↔ 開いたページのURLと要求",

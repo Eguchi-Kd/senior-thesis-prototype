@@ -10,12 +10,13 @@ interface Props {
   explanation: string;
   learningPoint: string;
   keyPoints?: Scenario["keyPoints"];
+  cardEmoji?: string;
   newCard: boolean; // この端末で初めて入手したカードか
   isLast: boolean;
   onNext: () => void;
 }
 
-export function FeedbackCard({ correct, title, explanation, learningPoint, keyPoints, newCard, isLast, onNext }: Props) {
+export function FeedbackCard({ correct, title, explanation, learningPoint, keyPoints, cardEmoji, newCard, isLast, onNext }: Props) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -78,7 +79,7 @@ export function FeedbackCard({ correct, title, explanation, learningPoint, keyPo
             >
               {newCard ? "🎉 新しい学習カードを獲得！" : "📇 学習カード（入手済み）"}
             </motion.p>
-            <LearningCard title={title} learningPoint={learningPoint} delay={0.3} />
+            <LearningCard title={title} learningPoint={learningPoint} delay={0.3} emoji={cardEmoji} />
           </div>
         ) : (
           <div className="bg-blue-50 rounded-xl p-4 mb-6 border-l-4 border-blue-400">

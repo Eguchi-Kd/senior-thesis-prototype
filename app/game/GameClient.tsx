@@ -400,6 +400,7 @@ export default function GameClient() {
           explanation={scenario.explanation}
           learningPoint={scenario.learningPoint}
           keyPoints={scenario.keyPoints}
+          cardEmoji={scenario.cardEmoji}
           newCard={lastResult.newCard}
           isLast={isLast}
           onNext={handleNext}
