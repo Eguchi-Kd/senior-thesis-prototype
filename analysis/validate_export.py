@@ -15,6 +15,7 @@ export_firestore.py が出力したCSV（sessions/trials/tests）の整合性を
 import argparse
 import csv
 import json
+import math
 import os
 import sys
 from collections import Counter, defaultdict
@@ -71,10 +72,12 @@ def b(v):
 
 
 def num(v):
+    """数値に変換。NaN・Infinity・変換できない値は None（呼び出し側で ERROR/WARN にする）"""
     try:
-        return float(v)
+        x = float(v)
     except (TypeError, ValueError):
         return None
+    return x if math.isfinite(x) else None
 
 
 def expected_signal(is_fraud, decision_is_report):
@@ -242,8 +245,10 @@ def check(outdir, allow_empty=False):
             if any((num(e.split("+")[1]) or 0) <= 0 for e in events if "+" in e):
                 add("WARN", sid, f"本編{scn}: 閉じた記録のない調査（dwell=0）")
             hint = b(t["hintUsed"])
-            if hint != (t.get("hintAtMs", "") != ""):
-                add("ERROR", sid, f"本編{scn}: hintUsed と hintAtMs が不一致")
+            # schemaVersion 4〜：ヒントは探索画面のみで時刻は hintAtScenarioMs。それ以前は判定画面起点の hintAtMs
+            hint_col = "hintAtScenarioMs" if (num(s.get("schemaVersion")) or 0) >= 4 else "hintAtMs"
+            if hint != (t.get(hint_col, "") != ""):
+                add("ERROR", sid, f"本編{scn}: hintUsed と {hint_col} が不一致")
             rt, lat, fin = num(t["reactionTimeMs"]), num(t["decisionLatencyMs"]), num(t.get("finalJudgeLatencyMs"))
             if rt is None or rt <= 0 or rt > RT_MAX_MS:
                 add("WARN", sid, f"本編{scn}: RTが異常値 {t['reactionTimeMs']}")

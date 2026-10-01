@@ -2,18 +2,20 @@
 
 import { motion } from "framer-motion";
 import { LearningCard } from "./LearningCard";
+import type { Scenario } from "@/scenarios/types";
 
 interface Props {
   correct: boolean;
   title: string;
   explanation: string;
   learningPoint: string;
+  keyPoints?: Scenario["keyPoints"];
   newCard: boolean; // この端末で初めて入手したカードか
   isLast: boolean;
   onNext: () => void;
 }
 
-export function FeedbackCard({ correct, title, explanation, learningPoint, newCard, isLast, onNext }: Props) {
+export function FeedbackCard({ correct, title, explanation, learningPoint, keyPoints, newCard, isLast, onNext }: Props) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -39,9 +41,32 @@ export function FeedbackCard({ correct, title, explanation, learningPoint, newCa
           {correct ? "正解！お見事！" : "不正解"}
         </h2>
 
-        <div className="bg-gray-50 rounded-xl p-4 mb-4">
-          <p className="text-sm text-gray-700 leading-relaxed">{explanation}</p>
-        </div>
+        {/* 要点を先に（今回の根拠・見比べた情報・次に取る行動）。詳しい解説は開閉式 */}
+        {keyPoints ? (
+          <div className="mb-4 space-y-2">
+            {[
+              { icon: "🔎", label: "今回の根拠", text: keyPoints.basis },
+              { icon: "🔁", label: "見比べた情報", text: keyPoints.compared },
+              { icon: "✅", label: "次に取る行動", text: keyPoints.action },
+            ].map((k) => (
+              <div key={k.label} className="flex gap-2 bg-gray-50 rounded-xl p-3">
+                <span className="text-lg leading-none">{k.icon}</span>
+                <div>
+                  <p className="text-[11px] font-bold text-gray-500">{k.label}</p>
+                  <p className="text-sm text-gray-800 leading-relaxed">{k.text}</p>
+                </div>
+              </div>
+            ))}
+            <details className="bg-gray-50 rounded-xl p-3">
+              <summary className="cursor-pointer text-sm font-bold text-gray-600">詳しい解説を読む</summary>
+              <p className="text-sm text-gray-700 leading-relaxed mt-2">{explanation}</p>
+            </details>
+          </div>
+        ) : (
+          <div className="bg-gray-50 rounded-xl p-4 mb-4">
+            <p className="text-sm text-gray-700 leading-relaxed">{explanation}</p>
+          </div>
+        )}
 
         {correct ? (
           <div className="mb-6">

@@ -164,6 +164,7 @@ def flatten_sessions(docs, include_test, include_free=False):
                 "confidence": lg.get("confidence", ""),
                 "hintUsed": lg.get("hintUsed", ""),
                 "hintAtMs": g(lg, "hintAtMs"),
+                "hintAtScenarioMs": g(lg, "hintAtScenarioMs"),
                 "decisionBeforeHint": g(lg, "decisionBeforeHint"),
                 "correct": lg.get("correct", ""),
                 "signalType": lg.get("signalType", ""),

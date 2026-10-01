@@ -128,7 +128,7 @@ function play(pattern: Pattern) {
     let decision: Decision =
       pattern === "allReport" ? "report" : pattern === "careful" || sc.isFraud ? (sc.isFraud ? "report" : "ignore") : "report";
     if (pattern === "hintReinvestigate" && idx < 2) {
-      st().useHint("report");
+      st().takeHint("report");
       wait(3_000);
       // 調べ直し
       st().recordInspect(sc.relevantIds[0]);

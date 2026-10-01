@@ -1,54 +1,52 @@
-﻿# AI HANDOFF
+# AI HANDOFF
 
 ## Current Goal
-学祭での本収集に向け、研究用ログの品質と研究設計を固める。研究は体験型デジタル詐欺学習ゲームの設計と即時判断成績・使用体験の評価。今回の依頼はClaude Codeの変更後レビューと、現在のログで論文を書けるかの評価。
+学祭の本収集に向け、既存の詐欺認知学習ゲームの教材品質・使いやすさ・研究用データ品質を整える。今回の依頼は、取り下げられた機能提案の記述削除と、友人のプレイ感想に基づく課題分析。
 
 ## Current State
-- HEAD は下の Last Work のコミット。Next.js 15 静的出力＋R3F＋Zustand、GitHub Pages、Firestore。contentVersion `2026-10-05`、schemaVersion 3。
-- research：同意→属性→事前6問→練習→本編6問→事後6問→アンケート→結果。free：同意→練習→本編→結果。export は free/testRun を既定除外。
-- テストモード：`?test=1` を開くと端末（localStorage）に保存され、タイトルの「テストモードを解除」か `?test=0` まで維持。タイトルに「🧪 テストモード中」を表示。
-- 分析の流れ：`export_firestore.py` → `validate_export.py`（同意・値域も検査）→ `select_sample.py`（除外基準を適用し sample/ に採否と理由）→ `analyze_primary.py`（主要・副次評価。方法は docs/分析計画.md に固定）。
+- Next.js 15 静的出力＋R3F＋Zustand、GitHub Pages、Firestore。contentVersion `2026-10-06`、schemaVersion 4。
+- research：同意→属性→事前6問→練習→本編6問→事後6問→アンケート→結果。free：同意→練習→本編→結果。
+- 本編のヒントは探索画面の「⚖️ 判定する」の右隣「💡 ヒント」ボタンのみ（各シナリオの最初から表示。判定画面には見たヒントの文面だけを表示）。ログは hintAtScenarioMs（シナリオ開始から）、hintAtMs は常に null。
+- 解説は「今回の根拠／見比べた情報／次に取る行動」の要点（Scenario.keyPoints）を先に表示し、詳しい解説は開閉式。
+- テストモードは localStorage に保持。解除時は URL の ?test=1 も消す。
+- 分析：export → validate（NaN/Infinity も ERROR 扱いで停止しない）→ select_sample（複数版なら --content-version 必須）→ analyze_primary（単一版を確認、|Z| と r の符号を定義、c・確信度・SUS・priorPlays=0 感度分析）。
 
 ## Last Work
-Claude Code（2026-09-30）：Codex の docs/research-readiness-review.md に対応。R1〜R6 はコードで事実を確認し全採用。
-- R1 テストモードの端末保存（lib/testMode.ts）・解除ボタン
-- R2 export に consent_agreed/consent_timestamp、select_sample.py（担当者記録CSVは参加者コードで照合。新しい個人情報・受付番号は追加しない）
-- R3 集計 Promise は送信時の sessionId と一致する場合だけ状態更新
-- R4 結果画面の setPhase を本編完了時のみ
-- R5 validator：SUS・自己効力感・学習実感・没入感・難しさ・ITへの自信が整数1〜5、playMode・同意
-- R6 hiddenAfterFirstInspectMs を追加し診断・レーダーはそれを使用（研究分析は従来どおり非表示の多い試行を除外）
-- 計画の仕上げ：Wilcoxon（Pratt・正規近似・連続性補正なし）、順位双列相関、ペアのブートストラップ（seed 20261103）、全員差0の扱い、項目－残余相関、本収集時の固定保存を分析計画に明記し analyze_primary.py に実装
-- 保留：判定した通知ID・理由の記録（パイロットの聞き取り後に判断）
+Claude Code（2026-10-01）：Codex の docs/content-and-update-review.md と docs/player-feedback-assessment.md に対応。
+- T1〜T4 採用（解除時のURL、版の単一化、非有限値、依存宣言・README・副次評価・r の符号）
+- 本編：S1 に公式サイトのメモ（relevantIds=メモ＋スマホ）、S2「今日、青森市内で事故」、S3 をスマホのメモ×ブラウザ警告に、S4 のヒント・状況・https 化・断定の緩和、S101 のメモ具体化と母の通知の無関係化、S102「みずほ銀行アプリ」、カレンダーの曜日を2026年に
+- テスト：F2 の A/B 構造と「身に覚え」をそろえる、PRE_F1/POST_F1/PRE_S1/POST_S1/PRE_S2/PRE_S3/POST_S2/POST_S3 の根拠・表現
+- 表示：送信元・リンク・要求のラベル分け、文字を text-sm に、解説の要点表示
+- ヒントの入口：ユーザー案で探索画面のボタンに一本化
+- 不採用：S2（認証コード/パスワード変更）の作り替え（実データなしで別の非対称を生む恐れ。分析計画に異質性を明記）、既有知識での照合省略への対策・強制閲覧・出題順固定・対象年齢拡大（感想1件では根拠不足）
 
 ## Changed Files
-- 新規 `lib/testMode.ts`、`analysis/select_sample.py`、`analysis/analyze_primary.py`
-- `store/gameStore.ts`、`lib/version.ts`、`lib/playerType.ts`、`app/page.tsx`、`app/result/ResultClient.tsx`
-- `analysis/export_firestore.py`、`analysis/validate_export.py`（check() に分割）、`analysis/check_store.mjs`（8ケース）、`analysis/items.json`
-- `docs/分析計画.md`、`docs/パイロット実施手順.md`
+- `scenarios/*.ts`・`types.ts`（keyPoints）、`lib/pretest.ts`・`lib/transferTest.ts`
+- `app/game/GameClient.tsx`（ヒントボタン・カード、ラベル、文字）、`components/ui/{ConfidenceSlider,FeedbackCard,QuizRunner}.tsx`、`app/page.tsx`（T1）
+- `store/gameStore.ts`（takeHint ※ useHint から改名：lint がフックと誤認するため、hintAtScenarioMs）、`lib/version.ts`
+- `analysis/{validate_export,select_sample,analyze_primary,export_firestore}.py`、`check_store.mjs`（9ケース）、`simulate_sessions.ts`、`items.json`、`requirements.txt`、`README.md`
+- `docs/分析計画.md`・`パイロット実施手順.md`・`難易度ルーブリック.md`（旧版の注意書き）
 
 ## Decisions
-- 既決定を継続：コレクション変更なし・research/free の論理分離、統制群なし、各テスト6問、ヒント減点なし、フォームのランダム割付、旧版の強制リセットなし、表示用集計のサーバー側重複排除なし、アンケート途中復元・確信度再確認・保存間引き・匿名認証は見送り。
-- R2 の「匿名の受付番号」は既存の参加者コードで代替（個人情報を増やさない）。
-- 判定した通知ID・理由の記録は、主張を即時判断成績に絞る現計画では回答負担を増やさないため保留。パイロットの聞き取りで必要性を判断。
+- 既決定を継続（コレクション維持・research/free 分離、統制群なし、各テスト6問、フォームのランダム割付、旧版の強制リセットなし、表示集計の重複排除なし、参加者コードで照合）。
+- ヒントは探索画面のボタン1つ（ユーザー判断）。「減点なし」等の採点に関する表示はしない。
+- docs/project.md（北極星）は CLAUDE.md の規約により直接変更せず、更新案をユーザーに提示済み（一次指標の RT 短縮・転移60%目標などが現行の分析計画と不一致）。
 
 ## Verification
 - `pnpm exec tsc --noEmit`・`pnpm lint`：成功。GitHub Actions：下記コミットで確認
-- `node analysis/check_store.mjs`：8/8 OK（テストモードが再プレイ後も維持され ?test=0 で解除、初回調査以降の非表示時間の区間を含む）
-- 本番想定の再現データ16件：validate が同意なし・SUS 99 を ERROR 検出 → select_sample が自由プレイ・同意なし・検証エラーを理由付きで除外（14件採用）→ analyze_primary が主要・副次評価を出力
-- パイロット想定（testRun）：select_sample は既定で全件除外、`--include-test` で採用
-- R3 はコンポーネント内の処理のため自動試験なし（コードで sessionId 照合を確認）
-- 未確認：実機・ブラウザ（テストモード表示・解除、連続参加、結果URL直行、通信断→復帰）、ローカル build（CIは成功）
+- `node analysis/check_store.mjs`：9/9 OK（?test=1 の画面で解除→開始で本番扱い、を追加）
+- 再現データ：NaN/Infinity を ERROR 検出し停止しない／複数版は版指定なしで停止、指定で対象外の版を除外／analyze_primary の全出力（c・確信度・SUS・感度分析）を確認
+- 未確認：実機（ヒントボタンの位置・重なり、要点の開閉、ラベル・文字サイズ）、ローカル build
 
 ## Known Issues
 - 実機・ブラウザでの通し確認が未実施。
-- 本編ログに判定した通知ID・理由がない（理解の直接測定には不足。主張の範囲を即時判断成績に限定）。
-- 所要時間（倫理申請「約10分」との差）、フォーム難易度、欠損率はパイロットで確認。
-- ダミー導入後の難易度再採点、部屋の衝突判定は未対応。ローカル `.env.local` なし。`orchestrator/`・`Microsoft/` は触らない。
+- 本編ログに判定した通知ID・理由はない（主張は即時判断成績に限定）。
+- 現行18問の難易度の再採点はパイロット後。所要時間と倫理申請「約10分」の差。部屋の衝突判定なし。ローカル `.env.local` なし。`orchestrator/`・`Microsoft/` は触らない。
 
 ## Next Steps
-1. 実機で研究/自由プレイ、テストモードの表示と解除、連続参加、結果URL直行、解説中の再読み込み、通信断→復帰を確認
-2. 5〜8名パイロット → export（--include-test）→ validate → select_sample（--include-test, --staff）→ analyze_primary
-3. 変更したら版・items.json・分析計画を更新。本収集開始時にコミット・版・items.json・計画を記録し、本番端末のテストモードを解除、stats/festival2026 をリセット
+1. 実機で確認（ヒントボタン、要点表示、ラベル、研究/自由プレイ、テストモード解除、通信断→復帰）
+2. パイロット → export（--include-test）→ validate → select_sample（--include-test --content-version 2026-10-06 --staff）→ analyze_primary
+3. project.md の更新可否をユーザーが判断。パイロット後に難易度の再採点と問題の最終確定、版・items.json・計画の固定
 
 ## Last Agent
 Claude Code

@@ -34,4 +34,10 @@ export interface Scenario {
   difficulty: Difficulty;
   explanation: string;
   learningPoint: string;
+  // 解説の要点（先に短く見せ、詳しい解説は開閉式にする）。操作練習では省略
+  keyPoints?: {
+    basis: string; // 今回の根拠
+    compared: string; // 見比べた情報
+    action: string; // 次に取る行動
+  };
 }

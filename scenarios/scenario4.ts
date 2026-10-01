@@ -1,22 +1,23 @@
 import type { Scenario } from "./types";
 
-// 詐欺・難：一見ポスターの公式URLで始まるが、実体は別ドメイン（サブドメイン偽装）＋不要なログイン要求。
+// 詐欺・難：QRで開いたページのサイト名が、公式サイト名を先頭に含む別ドメイン（https でも詐欺の例）。
+// ポスターの「ログイン不要」とも食い違う。
 export const scenario4: Scenario = {
   id: 4,
   title: "QRコードの読み取り",
   description: "部屋を探索して、状況を確認しよう",
   anomaly: {
     type: "subdomain_spoof",
-    clue: "公式URLで始まるが実際のドメインは別物、かつ本来不要なログインを要求",
+    clue: "サイト名の右端が login-check.info でポスターの公式サイト aomori-fes.ac.jp と違い、不要なはずのログインを求めている",
   },
-  hint: "ポスターに書かれた案内と、QRコードを読み取った結果を見比べてみよう。URLの末尾にも注目。",
+  hint: "ポスターの公式サイトと、開いたページのサイト名（「//」の後〜最初の「/」）を比べよう。ログインが必要かどうかも確認。",
   relevantIds: ["poster", "smartphone"],
   difficulty: "hard",
   objects: [
     {
       id: "calendar",
       label: "カレンダー",
-      content: "11月の予定\n・11/3（火・祝）学祭に行く（友人と10時に正門）\n・11/5（木）レポート締切\n・11/8（日）バイト",
+      content: "11月の予定（2026年）\n・11/3（火・祝）学祭に行く（友人と10時に正門）\n・11/5（木）レポート締切\n・11/8（日）バイト",
     },
     {
       id: "receipt",
@@ -46,9 +47,9 @@ export const scenario4: Scenario = {
         },
         {
           type: "system",
-          sender: "QRスキャン結果",
-          body: "読み取ったページを開きますか？ ログインが求められています。",
-          url: "http://aomori-fes.ac.jp.login-check.info/signin",
+          sender: "QRコードで開いたページ",
+          body: "ポスターのQRコードを読み取ってページを開いたら、「続きを見るにはログインしてください」と表示された。",
+          url: "https://aomori-fes.ac.jp.login-check.info/signin",
           timestamp: "現在",
         },
       ],
@@ -56,6 +57,11 @@ export const scenario4: Scenario = {
   ],
   isFraud: true,
   explanation:
-    "URLの「//」の後から最初の「/」までがホスト名で、今回は「aomori-fes.ac.jp.login-check.info」です。本当の持ち主はホスト名の右端の「login-check.info」で、先頭の「aomori-fes.ac.jp」は飾りにすぎません。ポスターの公式サイト（aomori-fes.ac.jp）と一致せず、ポスターには「ログイン不要」とあるのにログインを求めている点も食い違います。貼り替えられたQRコードによるフィッシングと判断できます。",
-  learningPoint: "URLの持ち主は、ホスト名（「//」の後から最初の「/」まで）の右端で確かめます。QRコードを読んだら、開く前にURLをポスターなどの公式情報と見比べ、食い違えば公式サイトを自分で検索して開きましょう。",
+    "URLの「//」の後から最初の「/」まで（aomori-fes.ac.jp.login-check.info）がサイト名です。このサイトを登録しているのは右端の「login-check.info」の部分で、先頭の「aomori-fes.ac.jp」はその前に付けた飾りにすぎません。ポスターの公式サイト（aomori-fes.ac.jp）とは別のサイトです。また、ポスターには「ログイン不要」とあるのに、ログインを求めています。https で始まっていても安全とは限りません。偽サイトへ誘導するQRコードと判断できます。",
+  learningPoint: "サイト名（「//」の後〜最初の「/」）の右端が、公式として確認したドメインと同じかを見ます。QRコードで開いたページでは、何かを入力する前にポスターなどの公式情報と見比べ、食い違えば公式サイトを自分で検索して開きましょう。",
+  keyPoints: {
+    basis: "サイト名の右端が login-check.info で、ポスターの公式サイト aomori-fes.ac.jp と違う。不要なはずのログインも求めている",
+    compared: "ポスターの公式サイトと注意書き ↔ 開いたページのURLと要求",
+    action: "何も入力せずに閉じ、公式サイトを自分で検索して開く",
+  },
 };

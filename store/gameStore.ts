@@ -53,8 +53,9 @@ export interface ScenarioLog {
   decision: Decision;
   confidence: number;
   hintUsed: boolean;
-  hintAtMs: number | null; // 判定画面を最初に開いてからヒントを押すまで
-  decisionBeforeHint: Decision | null; // ヒントを押す前に選んでいた答え（未選択なら null）
+  hintAtMs: number | null; // 旧定義（判定画面を開いてから）。schemaVersion 4 以降はヒントが探索画面のみなので常に null
+  hintAtScenarioMs: number | null; // シナリオ開始からヒントを押すまで（schemaVersion 4〜）
+  decisionBeforeHint: Decision | null; // 判定画面から戻って調べ直している時に選んでいた答え（それ以外は null）
   correct: boolean;
   signalType: SignalType;
   inspectedIds: string[];
@@ -144,6 +145,7 @@ interface GameState {
   scenarioRestarted: boolean;
   hintUsed: boolean;
   hintAtMs: number | null;
+  hintAtScenarioMs: number | null;
   decisionBeforeHint: Decision | null;
   currentInspected: string[];
   currentInspectEvents: InspectEvent[];
@@ -169,7 +171,7 @@ interface GameState {
   startTimer: () => void;
   markScenarioStart: () => void;
   markJudgeOpen: () => void;
-  useHint: (decisionBeforeHint: Decision | null) => void;
+  takeHint: (decisionBeforeHint: Decision | null) => void;
   recordInspect: (id: string) => void;
   closeInspect: () => void;
   markPhase: (name: string) => void;
@@ -232,6 +234,7 @@ const perScenarioReset = () => ({
   rtLocked: false,
   hintUsed: false,
   hintAtMs: null as number | null,
+  hintAtScenarioMs: null as number | null,
   decisionBeforeHint: null as Decision | null,
   currentInspected: [] as string[],
   currentInspectEvents: [] as InspectEvent[],
@@ -336,13 +339,14 @@ export const useGameStore = create<GameState>()(
         set({ judgeOpenTime: judgeOpenTime ?? now, lastJudgeOpenTime: now, judgeOpenCount: judgeOpenCount + 1 });
       },
 
-      // 初回使用時のみタイミングとヒント前の答えを記録
-      useHint: (decisionBeforeHint) => {
-        const { hintUsed, judgeOpenTime } = get();
+      // ヒントは探索画面のボタンからのみ。初回使用時にシナリオ開始からの時刻とヒント前の答えを記録
+      takeHint: (decisionBeforeHint) => {
+        const { hintUsed, scenarioStartTime } = get();
         if (hintUsed) return;
         set({
           hintUsed: true,
-          hintAtMs: judgeOpenTime != null ? Math.round(performance.now() - judgeOpenTime) : null,
+          hintAtMs: null,
+          hintAtScenarioMs: scenarioStartTime != null ? Math.round(performance.now() - scenarioStartTime) : null,
           decisionBeforeHint,
         });
       },
@@ -412,6 +416,7 @@ export const useGameStore = create<GameState>()(
           confidence,
           hintUsed: s.hintUsed,
           hintAtMs: s.hintAtMs,
+          hintAtScenarioMs: s.hintAtScenarioMs,
           decisionBeforeHint: s.decisionBeforeHint,
           correct,
           signalType: deriveSignalType(decision, isFraud),

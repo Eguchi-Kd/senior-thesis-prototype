@@ -26,7 +26,7 @@ export const transferTestQuestions: TestQuestion[] = [
     id: "POST_F1",
     title: "家族を名乗るメッセージ",
     scenario:
-      "「携帯を壊して番号が変わった」とSMSが来て、続けて「急な支払いが必要だから、このあと送る口座に立て替えておいて」と家族を名乗って頼まれました。",
+      "「携帯を壊して番号が変わった」と家族を名乗るSMSが来て、続けて「急な支払いが必要だから、このあと送る口座に立て替えておいて。元の番号や他の家族には連絡しないで」と頼まれました。",
     isFraud: true,
     difficulty: "medium",
     details: { senderAddress: "登録外の新しい番号", url: "指定口座への立替振込を要求" },
@@ -37,16 +37,16 @@ export const transferTestQuestions: TestQuestion[] = [
     id: "POST_F2",
     title: "銀行からのログイン確認",
     scenario:
-      "銀行を名乗るメールで「不正アクセスの可能性があります。至急ご確認ください」とあり、確認用リンクが記載されています。",
+      "取引している銀行から、普段の案内に似たメールで「不正アクセスの可能性があります。至急ご確認ください」と届き、確認用リンクが記載されています。",
     isFraud: true,
     difficulty: "hard",
     details: {
       senderAddress: "security@mizuho-alert.com",
-      url: "https://mizuho.co.jp.secure-login.info/verify",
+      url: "https://mizuhobank.co.jp.secure-login.info/verify",
       officialInfo: "取引している銀行の公式サイトは mizuhobank.co.jp",
     },
     explanation:
-      "URLの「//」の後から最初の「/」までがホスト名（mizuho.co.jp.secure-login.info）で、本当の持ち主はその右端の「secure-login.info」です。公式の mizuhobank.co.jp とは別物で、先頭の「mizuho.co.jp」は飾りです。https でも偽サイトであることは変わりません。銀行の確認は、公式アプリや自分で開いた公式サイトから行いましょう。",
+      "URLの「//」の後から最初の「/」まで（mizuhobank.co.jp.secure-login.info）がサイト名で、このサイトを登録しているのは右端の「secure-login.info」の部分です。先頭の「mizuhobank.co.jp」は公式と同じ文字ですが、その前に付けた飾りにすぎず、公式の mizuhobank.co.jp とは別のサイトです。https でも偽サイトであることは変わりません。銀行の確認は、公式アプリや自分で開いた公式サイトから行いましょう。",
   },
   {
     id: "POST_F3",
@@ -63,7 +63,7 @@ export const transferTestQuestions: TestQuestion[] = [
     id: "POST_S1",
     title: "クレジットカードの利用通知",
     scenario:
-      "先週コンビニでカードを使いました。カード会社の公式アプリから「ご利用がありました。明細はアプリでご確認ください」と通知が来ました。リンクや入力要求はありません。",
+      "昨日（6/30）、コンビニで1,280円をクレジットカードで払いました。今日、カード会社からメールで「6/30 コンビニ 1,280円のご利用がありました。明細はアプリでご確認ください」と届きました。リンクや入力の要求はありません。",
     isFraud: false,
     difficulty: "easy",
     details: {
@@ -71,13 +71,13 @@ export const transferTestQuestions: TestQuestion[] = [
       officialInfo: "カード会社の公式サイトは card-company.co.jp",
     },
     explanation:
-      "自分の利用と一致する通知で、公式アプリに届き、送信元も公式サイトと同じドメインです。支払いや情報の入力も求めていません。この事例では、事実と一致し不審な要求もないので、正常な通知と判断できます。",
+      "利用した日・店・金額が自分の利用と一致する通知です。送信元のサイト名は公式サイトと同じ card-company.co.jp で、支払いや情報の入力も求めていません。この事例では、事実と一致し不審な要求もないので、正常な通知と判断できます。",
   },
   {
     id: "POST_S2",
     title: "パスワード変更の通知",
     scenario:
-      "昨日、自分でSNSのパスワードを変更しました。今日「パスワードが変更されました。心当たりがなければご確認ください」と通知が届きました。",
+      "1時間前に、自分でSNSのパスワードを変更しました。今「パスワードが変更されました。心当たりがなければご確認ください」とメールが届きました。",
     isFraud: false,
     difficulty: "hard",
     details: {
@@ -86,7 +86,7 @@ export const transferTestQuestions: TestQuestion[] = [
       officialInfo: "使っているSNSの公式サイトは sns-official.com",
     },
     explanation:
-      "自分で変更した事実と一致する通知です。リンク先のホスト名の右端は公式サイトと同じ sns-official.com のヘルプページで、パスワードなどの入力も求めていません。この事例では正常と判断できます。セキュリティの通知＝詐欺ではありませんが、心当たりがないときは公式アプリから確認しましょう。",
+      "自分で変更した直後に届いた、内容の一致する通知です。リンク先のサイト名の右端は公式サイトと同じ sns-official.com のヘルプページで、パスワードなどの入力も求めていません。この事例では正常と判断できます。セキュリティの通知＝詐欺ではありませんが、心当たりがないときは公式アプリから確認しましょう。",
   },
   {
     id: "POST_S3",
@@ -101,6 +101,6 @@ export const transferTestQuestions: TestQuestion[] = [
       officialInfo: "契約している携帯会社の公式サイトは mobile-carrier.co.jp",
     },
     explanation:
-      "契約している携帯会社の、いつもどおりの料金確定の通知です。リンク先のホスト名の右端は公式サイトと同じ mobile-carrier.co.jp で、支払いを急がせたり情報を入力させたりもしていません。この事例では正常と判断できます。リンクがある＝詐欺ではありませんが、心配なら公式アプリの明細から確認するのが確実です。",
+      "契約している携帯会社の、いつもどおりの料金確定の通知です。リンク先のサイト名の右端は公式サイトと同じ mobile-carrier.co.jp で、通知自体は支払いを急がせたり情報を入力させたりしていません（公式の会員ページで明細を見るときのログインは、通常の手続きです）。この事例では正常と判断できます。リンクがある＝詐欺ではありませんが、心配なら公式アプリの明細から確認するのが確実です。",
   },
 ];

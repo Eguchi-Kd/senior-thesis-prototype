@@ -27,8 +27,18 @@ python analysis/export_firestore.py --include-test # テスト実行も含める
 - `tests.csv` … 1行/事前・事後テスト項目（phase=pre/post・正誤・RT など）
 
 ## テスト/本番の区別
-プレイ時のURL末尾に `?test=1` を付けると `testRun=true` として記録され、既定のエクスポートで除外される。
-本番（大学祭）ではクリーンなURL（QR）を使うこと。
+プレイ時のURL末尾に `?test=1` を付けると、その端末に「テストモード」が保存され、`testRun=true` として記録される（既定のエクスポートで除外）。
+テストモードは **解除するまで続く**（結果画面から再プレイしても切れない）。タイトルに「🧪 テストモード中」と表示される。
+本番（大学祭）の前に、本番用の各端末でタイトルの「テストモードを解除」を押すか `?test=0` を開き、表示が消えたことを確認すること。
+
+## 分析の流れ
+```
+python export_firestore.py [--include-test]          # 抽出（パイロットは --include-test）
+python validate_export.py data/export_XXXX            # 検証（ERROR 0 を確認）
+python select_sample.py data/export_XXXX --content-version <版> [--staff 記録.csv] [--include-test]
+python analyze_primary.py data/export_XXXX/sample     # 主要・副次評価（分析計画どおり）
+```
+select_sample.py の notes（priorPlays・再読み込み・所要時間の欠損など）は自動では除外しない。担当者記録と照合し、要確認の一覧を確定してから主解析に進むこと。
 
 ## 補足
 - 信号検出の集計例：`trials.csv` の `signalType`（hit/miss/fa/cr）と `isFraud` から

@@ -17,6 +17,9 @@ import { addToCollection, scenarioCardId } from "@/lib/collection";
 
 type Stage = "intro" | "practice" | "main" | "outro";
 
+// URL（リンク）か、振込先・電話番号などの「要求」かでラベルを分ける
+const isLink = (v: string) => /^https?:\/\//.test(v);
+
 // 本編の終了画面。ここから先（事後テスト・アンケート）は縦画面なので、横画面ロックを解除して縦持ちを促す
 function GameOutro({ total, freePlay, onNext }: { total: number; freePlay: boolean; onNext: () => void }) {
   useEffect(() => {
@@ -49,7 +52,7 @@ export default function GameClient() {
   const router = useRouter();
   const {
     phase, setPhase, startTimer, markScenarioStart, markJudgeOpen, submitDecision, nextScenario,
-    hintUsed, useHint, recordInspect, closeInspect, markPhase, completePractice,
+    hintUsed, takeHint, recordInspect, closeInspect, markPhase, completePractice,
     currentInspected, scenarioOrder, currentIndex, practiceDone, logs, playMode,
   } = useGameStore();
 
@@ -67,6 +70,7 @@ export default function GameClient() {
   );
   const [practice, setPractice] = useState<PracticeCheck>({ move: false, look: false, inspect: false });
   const [practiceDoneModal, setPracticeDoneModal] = useState(false);
+  const [showHintCard, setShowHintCard] = useState(false);
 
   const inPractice = stage === "practice";
   const scenario = inPractice ? practiceScenario : getScenarioById(scenarioOrder[currentIndex]);
@@ -79,6 +83,7 @@ export default function GameClient() {
     markScenarioStart();
     setDraftDecision(null);
     setDraftConfidence(null);
+    setShowHintCard(false);
   }, [stage, currentIndex, markScenarioStart, markPhase]);
 
   const onActivity = useCallback((kind: "move" | "look") => {
@@ -117,6 +122,12 @@ export default function GameClient() {
     markJudgeOpen();
     setShowJudge(true);
     setPhase("judging");
+  };
+
+  // ヒントの表示（初回だけ記録。判定画面から戻って調べ直している場合は、その時選んでいた答えも記録）
+  const openHint = () => {
+    if (!hintUsed) takeHint(draftDecision);
+    setShowHintCard((v) => !v);
   };
 
   // 判定画面から探索に戻って調べ直す（答え・確信度・ヒントは保持）
@@ -237,24 +248,50 @@ export default function GameClient() {
 
       {/* 探索ガイド（本編でまだ何も調べていないとき） */}
       {!inPractice && phase === "exploring" && currentInspected.length === 0 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-xs text-center pointer-events-none px-4">
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 text-white/70 text-xs text-center pointer-events-none px-4">
           左スティックで移動 ・ 右スティックで見回す<br />
           （PC: WASDで移動・ドラッグで視点） 近づいてタップで調べる
         </div>
       )}
 
-      {/* 判定ボタン：本編は1つ以上調べたら、練習は3項目クリアで表示 */}
-      {controlsEnabled &&
-        ((inPractice && practiceReady) || (!inPractice && phase === "exploring" && currentInspected.length >= 1)) && (
-          <button
-            onClick={openJudge}
-            className={`absolute bottom-5 left-1/2 -translate-x-1/2 z-40 px-6 py-3 bg-blue-600 text-white font-bold rounded-full shadow-lg pointer-events-auto ${
-              inPractice ? "animate-bounce" : ""
-            }`}
-          >
-            ⚖️ 判定する
-          </button>
-        )}
+      {/* 下部ボタン：判定（本編は1つ以上調べたら／練習は3項目クリアで表示）＋ヒント（本編の探索中は最初から表示） */}
+      {controlsEnabled && (
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3">
+          {((inPractice && practiceReady) || (!inPractice && phase === "exploring" && currentInspected.length >= 1)) && (
+            <button
+              onClick={openJudge}
+              className={`px-6 py-3 bg-blue-600 text-white font-bold rounded-full shadow-lg pointer-events-auto ${
+                inPractice ? "animate-bounce" : ""
+              }`}
+            >
+              ⚖️ 判定する
+            </button>
+          )}
+          {!inPractice && phase === "exploring" && (
+            <button
+              onClick={openHint}
+              className="px-5 py-3 bg-amber-400 text-amber-950 font-bold rounded-full shadow-lg pointer-events-auto"
+            >
+              💡 ヒント
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ヒント（どこを見比べるかだけを示す。入口はこのボタンのみ） */}
+      {showHintCard && !inPractice && phase === "exploring" && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 w-[min(90vw,28rem)] bg-amber-100 text-amber-950 rounded-2xl shadow-lg p-3 pointer-events-auto">
+          <div className="flex items-start gap-2">
+            <p className="text-sm leading-relaxed flex-1">
+              <span className="font-bold">💡 ヒント：</span>
+              {scenario.hint}
+            </p>
+            <button onClick={() => setShowHintCard(false)} className="text-amber-900 text-lg leading-none px-1" aria-label="ヒントを閉じる">
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 移動ジョイスティックゾーン（左下） */}
       <div id="joystick-zone" className="absolute bottom-0 left-0 w-1/3 h-1/2 pointer-events-auto z-30" />
@@ -277,15 +314,18 @@ export default function GameClient() {
               <div className="mb-4 space-y-2">
                 {inspectedObj.content.map((msg, i) => (
                   <div key={i} className="bg-gray-100 rounded-xl p-3 text-sm space-y-1">
-                    {/* 手がかりを別行で明示：送信元名・実アドレス・日時・本文・リンク先URL */}
-                    <p className="text-xs text-gray-500">送信元：<span className="text-gray-700">{msg.sender}</span></p>
+                    {/* 手がかりを別行で明示：表示名・実際の番号/アドレス・日時・本文・リンク先 or 要求内容 */}
+                    <p className="text-sm text-gray-500">送信元：<span className="text-gray-800">{msg.sender}</span></p>
                     {msg.senderAddress && (
-                      <p className="text-xs text-gray-500 font-mono break-all">アドレス：<span className="text-gray-800">{msg.senderAddress}</span></p>
+                      <p className="text-sm text-gray-500 break-all">送信元の番号・アドレス：<span className="text-gray-900 font-mono">{msg.senderAddress}</span></p>
                     )}
-                    <p className="text-xs text-gray-500">日時：<span className="text-gray-700">{msg.timestamp}</span></p>
-                    <p className="text-gray-800 pt-1 border-t border-gray-200 mt-1">{msg.body}</p>
+                    <p className="text-sm text-gray-500">日時：<span className="text-gray-800">{msg.timestamp}</span></p>
+                    <p className="text-gray-900 pt-1 border-t border-gray-200 mt-1">{msg.body}</p>
                     {msg.url && (
-                      <p className="text-xs text-gray-500 font-mono break-all pt-1">リンク先：<span className="text-blue-700">{msg.url}</span></p>
+                      <p className="text-sm text-gray-500 break-all pt-1">
+                        {isLink(msg.url) ? "リンク先：" : "求められていること："}
+                        <span className={isLink(msg.url) ? "text-blue-700 font-mono" : "text-gray-900"}>{msg.url}</span>
+                      </p>
                     )}
                   </div>
                 ))}
@@ -306,7 +346,7 @@ export default function GameClient() {
             <h3 className="text-lg font-bold mb-2">操作はバッチリ！</h3>
             <p className="text-sm text-gray-600 mb-5">
               本番では、判定画面で「詐欺あり／なし」と自信の度合いを選びます。<br />
-              迷ったら「もう一度調べる」で部屋に戻れます。
+              迷ったら「💡 ヒント」で見比べるポイントを確認したり、判定画面の「もう一度調べる」で部屋に戻ったりできます。
             </p>
             <button onClick={finishPractice} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold">
               本番スタート →
@@ -326,7 +366,6 @@ export default function GameClient() {
           onBack={backToExplore}
           hint={scenario.hint}
           hintUsed={hintUsed}
-          onUseHint={useHint}
         />
       )}
 
@@ -337,6 +376,7 @@ export default function GameClient() {
           title={scenario.title}
           explanation={scenario.explanation}
           learningPoint={scenario.learningPoint}
+          keyPoints={scenario.keyPoints}
           newCard={lastResult.newCard}
           isLast={isLast}
           onNext={handleNext}

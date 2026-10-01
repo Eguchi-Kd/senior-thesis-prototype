@@ -1,1 +1,4 @@
 firebase-admin>=6.5.0
+# 分析（analyze_primary.py）。確認済みの版: numpy 2.5.0, scipy 1.18.0
+numpy>=2.0
+scipy>=1.11

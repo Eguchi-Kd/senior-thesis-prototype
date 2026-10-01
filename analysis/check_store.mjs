@@ -118,6 +118,15 @@ st().reset();
 const t4 = st().testRun;
 check("テストモードは再プレイ後も維持され、?test=0 で解除", t1 && t2 && !t3 && !t4, `${t1},${t2},${t3},${t4}`);
 
+// 7b. ?test=1 を開いた画面で解除ボタン → そのまま開始（タイトルの exitTestMode と同じ処理）
+const { saveTestMode } = await jiti.import(join(root, "lib/testMode.ts"));
+window.location.search = "?test=1";
+st().reset();
+saveTestMode(false);
+window.location.search = ""; // exitTestMode は history.replaceState でクエリを消す
+st().reset();
+check("?test=1 の画面で解除してから開始すると本番扱い", st().testRun === false && local.get("scamDetective.testMode") === undefined);
+
 // 8. 初回調査以降の非表示時間は、初回調査前の非表示を含まない
 st().reset();
 st().setConsent(true);

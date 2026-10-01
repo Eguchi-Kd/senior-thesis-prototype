@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { LikertButtons } from "./LikertButtons";
 
 type Decision = "report" | "ignore";
@@ -13,8 +12,7 @@ interface Props {
   onSubmit: () => void;
   onBack: () => void; // 探索に戻って調べ直す（選んだ答え・確信度・ヒントは保持）
   hint: string;
-  hintUsed: boolean;
-  onUseHint: (decisionBeforeHint: Decision | null) => void;
+  hintUsed: boolean; // 探索画面のヒントボタンで見たヒントを、判定画面でも読み返せるよう表示する
 }
 
 const LABELS = ["全くわからない", "あまり自信なし", "やや自信あり", "かなり自信あり", "完全に自信あり"];
@@ -29,32 +27,20 @@ export function ConfidenceSlider({
   onBack,
   hint,
   hintUsed,
-  onUseHint,
 }: Props) {
-  const [showHint, setShowHint] = useState(hintUsed);
-
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90dvh] overflow-y-auto">
         <h2 className="text-lg font-bold text-center mb-1">判定してください</h2>
         <p className="text-sm text-gray-600 text-center mb-4">スマホに届いた通知の中に、詐欺はありましたか？</p>
 
-        {/* ヒント（減点なし。どこを見比べるかだけを示す） */}
-        <div className="flex justify-center mb-4">
-          {showHint ? (
-            <div className="w-full bg-amber-100 text-amber-900 text-sm rounded-xl p-3 text-center">
-              <p className="font-bold mb-1">💡 ヒント</p>
-              <p>{hint}</p>
-            </div>
-          ) : (
-            <button
-              onClick={() => { onUseHint(decision); setShowHint(true); }}
-              className="px-4 py-2 bg-amber-100 text-amber-900 text-sm font-bold rounded-full"
-            >
-              💡 ヒントを見る
-            </button>
-          )}
-        </div>
+        {/* 探索中に見たヒントの読み返し（ヒントの入口は探索画面のボタンだけ） */}
+        {hintUsed && (
+          <div className="w-full bg-amber-100 text-amber-900 text-sm rounded-xl p-3 text-center mb-4">
+            <p className="font-bold mb-1">💡 ヒント</p>
+            <p>{hint}</p>
+          </div>
+        )}
 
         <div className="flex gap-3 mb-5">
           <button

@@ -136,12 +136,17 @@ export function QuizRunner({
                   <span className="w-6 h-6 rounded-md bg-blue-600 text-white text-xs flex items-center justify-center">✉</span>
                   <span className="text-[11px] text-gray-500">届いた通知の詳細</span>
                 </div>
-                <div className="text-xs space-y-1">
+                <div className="text-sm space-y-1">
                   {question.details.senderAddress && (
-                    <p className="text-gray-500 font-mono break-all">送信元：<span className="text-gray-900">{question.details.senderAddress}</span></p>
+                    <p className="text-gray-500 break-all">送信元の番号・アドレス：<span className="text-gray-900 font-mono">{question.details.senderAddress}</span></p>
                   )}
                   {question.details.url && (
-                    <p className="text-gray-500 font-mono break-all">リンク先：<span className="text-blue-700">{question.details.url}</span></p>
+                    <p className="text-gray-500 break-all">
+                      {/^https?:\/\//.test(question.details.url) ? "リンク先：" : "求められていること："}
+                      <span className={/^https?:\/\//.test(question.details.url) ? "text-blue-700 font-mono" : "text-gray-900"}>
+                        {question.details.url}
+                      </span>
+                    </p>
                   )}
                   {question.details.date && (
                     <p className="text-gray-500">日付：<span className="text-gray-900">{question.details.date}</span></p>

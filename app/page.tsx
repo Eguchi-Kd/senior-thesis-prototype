@@ -38,6 +38,8 @@ export default function TitlePage() {
 
   const exitTestMode = () => {
     saveTestMode(false);
+    // URL に ?test=1 が残っていると次の開始（reset）で再びテストモードになるため、クエリも消す
+    window.history.replaceState(null, "", window.location.pathname);
     useGameStore.setState({ testRun: process.env.NODE_ENV === "development" });
     setShowDev(process.env.NODE_ENV === "development");
   };
