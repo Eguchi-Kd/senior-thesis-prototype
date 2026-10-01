@@ -1,7 +1,9 @@
 rules_version = '2';
 
 // 緊急停止用ルール（異常な書き込み・利用量の急増などが起きたときに使う）。
-// すべての読み書きを止める。ゲーム自体は動くが、ログは保存されない（端末側に保持され、ルールを戻すと再送される分もある）。
+// すべての読み書きを止める。ゲーム自体は動くが、ログは保存されない。
+// 注意：権限で拒否された書き込みは Firebase SDK の送信待ちから外れ、ルールを戻しても自動では再送されない。
+// 復旧は docs/公開前チェックリスト.md の手順（結果画面の「再送する」で現在のデータを送り直す）で行う。
 //
 // 適用：  firebase deploy --only firestore:rules --config firebase.lockdown.json
 //   もしくは firestore.rules を一時的にこの内容で置き換えて firebase deploy --only firestore:rules

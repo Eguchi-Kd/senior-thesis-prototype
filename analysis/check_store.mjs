@@ -140,5 +140,40 @@ st().submitDecision("report", 3, true, true);
 const lg = st().logs[0];
 check("初回調査以降の非表示時間だけを別に記録", lg.hiddenMs === 45_000 && lg.hiddenAfterFirstInspectMs === 5_000, `hidden=${lg.hiddenMs} afterInspect=${lg.hiddenAfterFirstInspectMs}`);
 
+// 9. 同じページ内での再入場（戻る→自動で本編へ）では、ヒント・調査・開始時刻を消さない
+st().reset();
+st().setConsent(true);
+st().setPhase("exploring");
+st().markScenarioStart();
+const startAt = st().scenarioStartTime;
+st().takeHint(null);
+st().recordInspect("smartphone"); // 調査パネルを開いたまま離れる
+st().startTimer();
+st().setPhase("pretest"); // 戻る操作で事前テストへ
+st().markScenarioStart(); // 自動で本編へ戻り、本編画面が再び計測開始を呼ぶ
+let s9 = st();
+check(
+  "再入場ではヒント・調査・開始時刻を保持（開いたままの調査は閉じた扱い）",
+  s9.hintUsed && s9.hintAtScenarioMs != null && s9.currentInspected.join() === "smartphone" &&
+    s9.currentInspectEvents.length === 1 && s9.inspectOpenAt === null && s9.scenarioStartTime === startAt,
+);
+st().submitDecision("report", 3, true, true);
+const lg9 = st().logs[0];
+check("再入場をはさんだ回答のログにヒント使用が残る", lg9.hintUsed === true && lg9.inspectedIds.join() === "smartphone" && lg9.restarted === false);
+
+// 10. 次の問題では正しくリセットされる
+st().nextScenario();
+st().markScenarioStart();
+s9 = st();
+check("次の問題ではヒント・調査がリセットされる", !s9.hintUsed && s9.currentInspected.length === 0 && s9.scenarioStartedIndex === 1);
+
+// 11. 再読み込みでは従来どおりリセット＋restarted
+st().takeHint(null);
+st().recordInspect("calendar");
+s9 = await reloadWith(() => {});
+st().markScenarioStart();
+s9 = st();
+check("再読み込み後は途中状態をリセットし restarted を付ける", !s9.hintUsed && s9.currentInspected.length === 0 && s9.scenarioRestarted === true);
+
 console.log(failures ? `\n${failures} 件 FAIL` : "\nすべて OK");
 process.exit(failures ? 1 : 0);

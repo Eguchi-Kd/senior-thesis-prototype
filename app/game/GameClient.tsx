@@ -99,13 +99,13 @@ export default function GameClient() {
 
   // 本編の各シナリオ開始で時刻・per-scenario 状態をリセット
   useEffect(() => {
-    if (stage !== "main") return;
+    if (stage !== "main" || entry !== "stay") return; // 別の画面へ送る場合は計測を始めない
     markPhase("gameStart");
     markScenarioStart();
     setDraftDecision(null);
     setDraftConfidence(null);
     setShowHintCard(false);
-  }, [stage, currentIndex, markScenarioStart, markPhase]);
+  }, [stage, currentIndex, markScenarioStart, markPhase, entry]);
 
   const onActivity = useCallback((kind: "move" | "look") => {
     setPractice((p) => (p[kind] ? p : { ...p, [kind]: true }));

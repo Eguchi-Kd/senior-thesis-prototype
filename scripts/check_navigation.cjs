@@ -89,7 +89,8 @@ async function main() {
       await sleep(6500);
       await send("Page.removeScriptToEvaluateOnNewDocument", { identifier: script.identifier });
       const r = await evaluate(`(() => { const s = JSON.parse(sessionStorage.getItem('scamDetective.session')).state;
-        return { path: location.pathname, text: document.body.innerText, phase: s.phase, logs: s.logs.length, pre: s.preTestLogs.length, post: s.transferTestLogs.length }; })()`);
+        return { path: location.pathname, text: document.body.innerText, phase: s.phase, logs: s.logs.length, pre: s.preTestLogs.length, post: s.transferTestLogs.length,
+          sessionId: s.sessionId, logsJson: JSON.stringify(s.logs), preJson: JSON.stringify(s.preTestLogs), postJson: JSON.stringify(s.transferTestLogs) }; })()`);
       await evaluate("sessionStorage.removeItem('__seeded')");
       return r;
     }
@@ -110,7 +111,11 @@ async function main() {
     for (const [name, state, page, ok] of cases) {
       const r = await openWith(state, page);
       const counts = r.logs <= 6 && r.pre <= 6 && r.post <= 6;
-      const pass = ok(r) && counts;
+      // 開く前後で同じセッションのまま、既存の回答ログが消えたり書き換わったりしていないこと
+      const same = r.sessionId === state.sessionId && r.logsJson === JSON.stringify(state.logs || []) &&
+        r.preJson === JSON.stringify(state.preTestLogs || []) && r.postJson === JSON.stringify(state.transferTestLogs || []);
+      const pass = ok(r) && counts && same;
+      if (!same) console.log("      回答ログまたは sessionId が変化");
       if (!pass) failures++;
       console.log(`${pass ? "OK  " : "FAIL"} ${name}  [着いた: ${r.path} / phase=${r.phase} / 本編${r.logs}・事前${r.pre}・事後${r.post}]`);
       if (!pass) console.log("      表示: " + r.text.replace(/\s+/g, " ").slice(0, 160));

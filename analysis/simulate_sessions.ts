@@ -107,7 +107,8 @@ function play(pattern: Pattern) {
     if (pattern === "reloadMidGame" && idx === 2) {
       st().recordInspect("calendar");
       wait(5_000);
-      useGameStore.setState({ resumeCount: st().resumeCount + 1, scenarioRestarted: true });
+      // 再読み込みの模擬：復元処理と同じく途中状態（計測中の問題番号を含む）を消す
+      useGameStore.setState({ resumeCount: st().resumeCount + 1, scenarioRestarted: true, scenarioStartedIndex: null });
       st().markScenarioStart();
       wait(8_000);
     }

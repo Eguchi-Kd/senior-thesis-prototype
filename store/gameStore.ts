@@ -141,6 +141,7 @@ interface GameState {
   judgeOpenCount: number;
   rtLocked: boolean;
   scenarioHiddenStart: number; // シナリオ開始時点の hiddenTotalMs
+  scenarioStartedIndex: number | null; // 計測を始めた問題の番号（同じページ内での再入場を、新しい問題の開始と区別する）
   inspectHiddenStart: number | null; // 初回調査時点の hiddenTotalMs
   scenarioRestarted: boolean;
   hintUsed: boolean;
@@ -225,6 +226,7 @@ const toTestLog = (log: Omit<TestLog, "signalType" | "restarted">, restarted: bo
 });
 
 const perScenarioReset = () => ({
+  scenarioStartedIndex: null as number | null,
   inspectHiddenStart: null as number | null,
   scenarioStartTime: null as number | null,
   firstInspectTime: null as number | null,
@@ -329,8 +331,22 @@ export const useGameStore = create<GameState>()(
       },
 
       // 各シナリオ開始時に時刻と per-scenario 状態をリセット
-      markScenarioStart: () =>
-        set({ ...perScenarioReset(), scenarioStartTime: performance.now(), scenarioHiddenStart: get().hiddenTotalMs }),
+      // 問題の計測を始める。同じページ内で同じ未回答の問題に戻ってきた（戻る→自動で本編へ等）場合は、
+      // ヒント・調査・計測の途中状態を消さない（消すと「ヒント未使用・やり直しなし」と誤記録になる）。
+      // 再読み込み後は復元処理で途中状態が消えるので、ここで改めて計測を始める（restarted は復元処理が付ける）
+      markScenarioStart: () => {
+        const s = get();
+        if (s.scenarioStartedIndex === s.currentIndex && s.scenarioStartTime != null) {
+          if (s.inspectOpenAt != null) get().closeInspect(); // 調査パネルを開いたまま離れた場合はその時点で閉じた扱い
+          return;
+        }
+        set({
+          ...perScenarioReset(),
+          scenarioStartedIndex: s.currentIndex,
+          scenarioStartTime: performance.now(),
+          scenarioHiddenStart: s.hiddenTotalMs,
+        });
+      },
 
       // 判定画面を開いた時刻（最初と最後の両方）と回数
       markJudgeOpen: () => {
