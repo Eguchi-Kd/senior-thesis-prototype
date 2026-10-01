@@ -13,6 +13,7 @@ import { useGameStore, type Decision } from "@/store/gameStore";
 import { getScenarioById } from "@/lib/scenarios";
 import { practiceScenario } from "@/scenarios/practice";
 import { saveSnapshot } from "@/lib/logger";
+import { resumePath } from "@/lib/progress";
 import { addToCollection, scenarioCardId } from "@/lib/collection";
 
 type Stage = "intro" | "practice" | "main" | "outro";
@@ -56,10 +57,30 @@ export default function GameClient() {
     currentInspected, scenarioOrder, currentIndex, practiceDone, logs, playMode,
   } = useGameStore();
 
-  // 再読み込み時：本編を終えていれば終了画面、練習済みなら本編から
+  // 入場時の行き先を、phase ではなく回答済みデータから決める（戻る・再入場で操作不能にならないように）
+  const gameDone = logs.length >= scenarioOrder.length;
+  const showSavedFeedback = phase === "feedback" && logs.length > currentIndex; // 解説の表示中に再読み込み/再入場
+  const [entry] = useState<"stay" | "toResult" | "toEarlier">(() => {
+    const s = useGameStore.getState();
+    const path = resumePath(s);
+    // 開発用の直行（テスト実行・同意なし）は前の工程へ戻さない
+    if ((path === "/consent" || path === "/intake" || path === "/pretest") && !(s.testRun && !s.consent.agreed)) return "toEarlier";
+    // 本編を終えて事後テスト・アンケート・結果に進んでいる → 結果側（ResultClient が回答データから画面を復元）
+    if (gameDone && !showSavedFeedback && phase !== "transfer_test") return "toResult";
+    return "stay";
+  });
   const [stage, setStage] = useState<Stage>(() =>
-    phase === "transfer_test" ? "outro" : practiceDone ? "main" : "intro",
+    gameDone && !showSavedFeedback ? "outro" : practiceDone ? "main" : "intro",
   );
+
+  useEffect(() => {
+    if (entry === "toResult") router.replace("/result");
+    else if (entry === "toEarlier") router.replace(resumePath(useGameStore.getState()));
+    // 本編の途中で他の画面から戻ってきた場合、段階を探索中に戻す（調査・判定・ヒントが効かなくなるのを防ぐ）
+    else if (practiceDone && !gameDone && !showSavedFeedback) setPhase("exploring");
+    // 入場時に一度だけ判定する
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [inspectedId, setInspectedId] = useState<string | null>(null);
   const [showJudge, setShowJudge] = useState(false);
   const [draftDecision, setDraftDecision] = useState<Decision | null>(null);
@@ -173,6 +194,8 @@ export default function GameClient() {
     setPhase("exploring");
     setStage("main");
   };
+
+  if (entry !== "stay") return null;
 
   // ─── 区切り画面 ───
   if (stage === "intro") {

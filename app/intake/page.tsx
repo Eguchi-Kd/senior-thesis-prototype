@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { saveSnapshot } from "@/lib/logger";
+import { resumePath } from "@/lib/progress";
 import { LikertButtons } from "@/components/ui/LikertButtons";
 
 // 単一選択チップ
@@ -59,7 +60,12 @@ export default function IntakePage() {
   const markPhase = useGameStore((s) => s.markPhase);
   const setPhase = useGameStore((s) => s.setPhase);
 
-  useEffect(() => setPhase("intake"), [setPhase]);
+  // 回答済み（または同意前・自由プレイ）で開かれた場合は、回答状況に応じた場所へ送る（属性の上書きや段階の巻き戻しをしない）
+  useEffect(() => {
+    const path = resumePath(useGameStore.getState());
+    if (path !== "/intake") router.replace(path);
+    else setPhase("intake");
+  }, [router, setPhase]);
 
   const [ageGroup, setAgeGroup] = useState("");
   const [occupation, setOccupation] = useState("");

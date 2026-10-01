@@ -7,6 +7,7 @@ import { QuizRunner } from "@/components/ui/QuizRunner";
 import { StageScreen } from "@/components/ui/StageScreen";
 import { orderedQuestions } from "@/lib/testForms";
 import { saveSnapshot } from "@/lib/logger";
+import { resumePath } from "@/lib/progress";
 
 type Screen = "intro" | "quiz" | "outro";
 
@@ -18,13 +19,26 @@ export default function PretestClient() {
   // 途中で再読み込みした場合は続きから
   const [screen, setScreen] = useState<Screen>(() => (answered >= questions.length ? "outro" : answered > 0 ? "quiz" : "intro"));
 
-  useEffect(() => setPhase("pretest"), [setPhase]);
+  // 戻る操作で再訪した場合：同意・属性が未回答ならそちらへ、事前テストを終えて本編に入っていれば本編（以降）へ送る。
+  // 段階（phase）を pretest に戻すのは、事前テストを実際に行う場合だけ
+  const [leaving] = useState(() => {
+    const s = useGameStore.getState();
+    const path = resumePath(s);
+    const done = s.preTestLogs.length >= questions.length;
+    return path === "/consent" || path === "/intake" || s.playMode === "free" || (done && (s.practiceDone || s.logs.length > 0));
+  });
+  useEffect(() => {
+    if (leaving) router.replace(resumePath(useGameStore.getState()));
+    else setPhase("pretest");
+  }, [leaving, router, setPhase]);
 
   const handleComplete = useCallback(() => {
     markPhase("pretestEnd");
     void saveSnapshot();
     setScreen("outro");
   }, [markPhase]);
+
+  if (leaving) return null;
 
   if (screen === "intro") {
     return (

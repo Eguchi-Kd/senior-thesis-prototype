@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useGameStore } from "@/store/gameStore";
 import { saveSnapshot } from "@/lib/logger";
+import { resumePath } from "@/lib/progress";
 
 export default function ConsentPage() {
   const router = useRouter();
@@ -14,7 +15,12 @@ export default function ConsentPage() {
   const setPhase = useGameStore((s) => s.setPhase);
   const [agreed, setAgreed] = useState(false);
 
-  useEffect(() => setPhase("consent"), [setPhase]);
+  // 同意済みで戻ってきた場合は、回答状況に応じた場所へ送る（再同意や段階の巻き戻しをしない）
+  useEffect(() => {
+    const path = resumePath(useGameStore.getState());
+    if (path !== "/consent") router.replace(path);
+    else setPhase("consent");
+  }, [router, setPhase]);
 
   const handleNext = () => {
     if (!agreed) return;
