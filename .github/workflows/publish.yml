@@ -1,0 +1,72 @@
+name: Publish to scam-detective (public)
+
+# 配信専用の公開リポジトリ Eguchi-Kd/scam-detective へ、コメント等を除いたビルド済みファイルだけを送る。
+# 手動実行のみ。dry_run=true（既定）では送らず、整理済みファイルを成果物として残すだけ。
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "true: 送らずに確認だけ / false: 公開リポジトリへ送る"
+        required: true
+        default: "true"
+        type: choice
+        options: ["true", "false"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install
+
+      - name: Build for /scam-detective
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_BASE_PATH: /scam-detective
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+
+      - name: Clean a copy of the build (remove comments, unneeded files, leak check)
+        run: node scripts/prepare_publish.mjs out publish
+
+      - name: Keep the cleaned files for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: publish-preview
+          path: publish
+          include-hidden-files: true
+
+      - name: Push to Eguchi-Kd/scam-detective (gh-pages, single commit)
+        if: ${{ inputs.dry_run == 'false' }}
+        env:
+          DEPLOY_KEY: ${{ secrets.PUBLISH_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/publish_key
+          chmod 600 ~/.ssh/publish_key
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          cd publish
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Publish SCAM DETECTIVE"
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/publish_key -o IdentitiesOnly=yes" \
+            git push --force git@github.com:Eguchi-Kd/scam-detective.git gh-pages
+          rm -f ~/.ssh/publish_key
