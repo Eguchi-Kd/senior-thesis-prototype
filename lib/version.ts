@@ -1,5 +1,5 @@
 // ログ構造の版（フィールドを追加・変更したら上げる）
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 // 内容の版：問題文・解説・判定・記録（ログの取り方）に影響する変更で上げる（分析で版ごとに分けるため）。
 // 絵文字などの表示だけの変更では上げず、本収集で使ったコミットを記録して区別する
-export const CONTENT_VERSION = "2026-10-08";
+export const CONTENT_VERSION = "2026-10-09";

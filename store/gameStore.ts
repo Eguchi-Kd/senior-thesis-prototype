@@ -166,6 +166,8 @@ interface GameState {
   statsState: "none" | "pending" | "done" | "failed";
   // research=はじめて（研究用データ） / free=2回目以降の自由プレイ（研究用データと分けて収集・テストなし）
   playMode: "research" | "free";
+  // この端末に過去のプレイ記録があり「はじめて遊ぶ」を押したとき、確認画面で「はじめて」を選んだか（確認を出していなければ null）
+  firstTimeConfirmed: boolean | null;
 
   // actions
   setPhase: (phase: GamePhase) => void;
@@ -190,6 +192,7 @@ interface GameState {
   setResultType: (t: string) => void;
   setStatsState: (st: GameState["statsState"]) => void;
   setPlayMode: (m: GameState["playMode"]) => void;
+  setFirstTimeConfirmed: (v: boolean | null) => void;
   reset: () => void;
 }
 
@@ -284,6 +287,7 @@ const initialState = () => {
     resultType: null as string | null,
     statsState: "none" as GameState["statsState"],
     playMode: "research" as GameState["playMode"],
+    firstTimeConfirmed: null as boolean | null,
   };
 };
 
@@ -479,6 +483,8 @@ export const useGameStore = create<GameState>()(
       setStatsState: (statsState) => set({ statsState }),
 
       setPlayMode: (playMode) => set({ playMode }),
+
+      setFirstTimeConfirmed: (firstTimeConfirmed) => set({ firstTimeConfirmed }),
 
       reset: () => set({ ...initialState() }),
     }),

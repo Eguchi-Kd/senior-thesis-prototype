@@ -6,7 +6,7 @@ export const practiceScenario: Scenario = {
   title: "操作練習",
   description: "操作に慣れよう",
   anomaly: { type: "practice", clue: "" },
-  hint: "",
+  hint: "本番では、ここに「どこを見比べるとよいか」のヒントが表示されます。",
   relevantIds: [],
   difficulty: "easy",
   objects: [

@@ -4,7 +4,7 @@
 export type Difficulty = "easy" | "medium" | "hard";
 
 export interface DigitalContent {
-  type: "sms" | "email" | "app" | "system";
+  type: "sms" | "email" | "app" | "system" | "alert"; // alert=ブラウザ等に出た警告画面
   sender: string; // 表示名（例: はやぶさ運輸）
   senderAddress?: string; // 実アドレス/ドメイン（例: info@hayabusa-saihai.info）
   body: string;

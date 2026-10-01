@@ -55,7 +55,7 @@ def g(d, key, default=""):
     return default if v is None else v
 
 
-PHASES = ["consent", "intakeEnd", "pretestStart", "pretestEnd", "practiceStart", "practiceEnd",
+PHASES = ["consent", "intakeEnd", "pretestStart", "pretestEnd", "practiceStart", "practiceEnd", "practiceSkipped",
           "gameStart", "gameEnd", "posttestStart", "posttestEnd", "surveyEnd"]
 
 
@@ -99,6 +99,7 @@ def flatten_sessions(docs, include_test, include_free=False):
             "dropoutPhase": d.get("dropoutPhase", ""),
             "testRun": test_run,
             "playMode": play_mode,
+            "firstTimeConfirmed": d.get("firstTimeConfirmed", ""),
             "consent_agreed": bool(consent.get("agreed", False)),
             "consent_timestamp": consent.get("timestamp", "") or "",
             "schemaVersion": d.get("schemaVersion", 1),

@@ -125,7 +125,10 @@ export function QuizRunner({
               <p className="text-[11px] font-bold text-blue-300 mb-1 tracking-wide">状況：{question.title}</p>
               <p className="text-gray-100 text-sm leading-relaxed">{question.scenario}</p>
               {question.details?.officialInfo && (
-                <p className="text-xs text-emerald-300 mt-2">📌 {question.details.officialInfo}</p>
+                <div className="mt-3 rounded-xl border border-emerald-400/50 bg-emerald-500/10 px-3 py-2">
+                  <p className="text-[11px] font-bold text-emerald-300">📌 公式情報（あなたが以前から知っていること）</p>
+                  <p className="text-sm text-emerald-100 break-all">{question.details.officialInfo}</p>
+                </div>
               )}
             </div>
 

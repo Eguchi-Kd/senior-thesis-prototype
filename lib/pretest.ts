@@ -21,7 +21,7 @@ export const preTestQuestions: TestQuestion[] = [
     id: "PRE_F2",
     title: "アカウントの確認",
     scenario:
-      "いつも使っている通販サイトから、普段の案内に似たメールで「アカウントに異常なアクセスがありました。確認しないと利用停止になります」と届き、確認リンクが載っています。",
+      "いつも使っている通販サイトから「アカウントに異常なアクセスがありました。確認しないと利用停止になります」とメールが届き、確認リンクが載っています。",
     isFraud: true,
     difficulty: "hard",
     details: {
@@ -47,15 +47,16 @@ export const preTestQuestions: TestQuestion[] = [
     id: "PRE_S1",
     title: "サブスクの決済完了",
     scenario:
-      "動画配信サービスを月額で契約しています。毎月の決済日の今日、サービスからメールで「今月分の決済が完了しました。明細はアプリでご確認ください」と届きました。リンクや入力の要求はありません。",
+      "動画配信サービスを月額で契約しています。毎月の決済日の今日、サービスからメールで「今月分の決済が完了しました。明細は会員ページでご確認いただけます」と届き、リンクが付いています。",
     isFraud: false,
     difficulty: "easy",
     details: {
       senderAddress: "receipt@video-service.co.jp",
+      url: "https://www.video-service.co.jp/account/billing",
       officialInfo: "契約している動画配信サービスの公式サイトは video-service.co.jp",
     },
     explanation:
-      "自分が契約しているサービスの、決済日どおりの通知です。送信元のサイト名は公式サイトと同じ video-service.co.jp で、支払いや情報の入力も求めていません。この事例では、事実と一致し不審な要求もないので、正常な通知と判断できます。",
+      "自分が契約しているサービスの、決済日どおりの通知です。送信元もリンク先も、サイト名の右端は公式サイトと同じ video-service.co.jp で、通知自体は支払いや情報の入力を求めていません。リンクがある＝詐欺ではありません。この事例では、事実と一致し不審な要求もないので、正常な通知と判断できます。",
   },
   {
     id: "PRE_S2",

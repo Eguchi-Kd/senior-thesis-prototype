@@ -37,7 +37,7 @@ export const transferTestQuestions: TestQuestion[] = [
     id: "POST_F2",
     title: "銀行からのログイン確認",
     scenario:
-      "取引している銀行から、普段の案内に似たメールで「不正アクセスの可能性があります。至急ご確認ください」と届き、確認用リンクが記載されています。",
+      "取引している銀行から「不正アクセスの可能性があります。至急ご確認ください」とメールが届き、確認用リンクが記載されています。",
     isFraud: true,
     difficulty: "hard",
     details: {
@@ -63,15 +63,16 @@ export const transferTestQuestions: TestQuestion[] = [
     id: "POST_S1",
     title: "クレジットカードの利用通知",
     scenario:
-      "昨日（6/30）、コンビニで1,280円をクレジットカードで払いました。今日、カード会社からメールで「6/30 コンビニ 1,280円のご利用がありました。明細はアプリでご確認ください」と届きました。リンクや入力の要求はありません。",
+      "昨日（6/30）、コンビニで1,280円をクレジットカードで払いました。今日、カード会社からメールで「6/30 コンビニ 1,280円のご利用がありました。明細は会員ページでご確認いただけます」と届き、リンクが付いています。",
     isFraud: false,
     difficulty: "easy",
     details: {
       senderAddress: "no-reply@card-company.co.jp",
+      url: "https://www.card-company.co.jp/member/statement",
       officialInfo: "カード会社の公式サイトは card-company.co.jp",
     },
     explanation:
-      "利用した日・店・金額が自分の利用と一致する通知です。送信元のサイト名は公式サイトと同じ card-company.co.jp で、支払いや情報の入力も求めていません。この事例では、事実と一致し不審な要求もないので、正常な通知と判断できます。",
+      "利用した日・店・金額が自分の利用と一致する通知です。送信元もリンク先も、サイト名の右端は公式サイトと同じ card-company.co.jp で、通知自体は支払いや情報の入力を求めていません。リンクがある＝詐欺ではありません。この事例では、事実と一致し不審な要求もないので、正常な通知と判断できます。",
   },
   {
     id: "POST_S2",
