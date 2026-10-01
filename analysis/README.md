@@ -43,4 +43,5 @@ select_sample.py の notes（priorPlays・再読み込み・所要時間の欠�
 ## 補足
 - 信号検出の集計例：`trials.csv` の `signalType`（hit/miss/fa/cr）と `isFraud` から
   ヒット率・誤警報率を出し、感度 d′ と判断基準 c を算出できる。
-- 実際の統計分析スクリプト（d′・pre/post・確信度校正・SUS集計）は別途整備する。
+- 統計分析：`analyze_primary.py` で主要評価（事前→事後の正答数差・Wilcoxon・効果量・ブートストラップ区間）と副次評価（見逃し/誤警報・d′・c・確信度・フォーム順・項目分析・SUS・自己効力感・priorPlays=0 の感度分析）を出力する。
+- 未実装（別途集計）：本編の行動（確認行動・ヒント・調べ直し・RT）、学習実感・没入感・難しさの要約。RT を集計するときは restarted と非表示時間の基準（docs/分析計画.md）を適用する。

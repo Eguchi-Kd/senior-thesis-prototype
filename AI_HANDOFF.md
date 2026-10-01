@@ -1,52 +1,55 @@
 # AI HANDOFF
 
 ## Current Goal
-学祭の本収集に向け、既存の詐欺認知学習ゲームの教材品質・使いやすさ・研究用データ品質を整える。今回の依頼は、取り下げられた機能提案の記述削除と、友人のプレイ感想に基づく課題分析。
+10月3日の公開に向け、最低限の修正箇所を特定し、Claude Codeによる修正後の状態を評価する。最新レビュー：docs/release-readiness-review.md。
 
 ## Current State
-- Next.js 15 静的出力＋R3F＋Zustand、GitHub Pages、Firestore。contentVersion `2026-10-06`、schemaVersion 4。
+- HEAD `0366fa7`。Next.js 15静的出力＋R3F＋Zustand、GitHub Pages、Firestore。contentVersion `2026-10-06`、schemaVersion 4。
 - research：同意→属性→事前6問→練習→本編6問→事後6問→アンケート→結果。free：同意→練習→本編→結果。
-- 本編のヒントは探索画面の「⚖️ 判定する」の右隣「💡 ヒント」ボタンのみ（各シナリオの最初から表示。判定画面には見たヒントの文面だけを表示）。ログは hintAtScenarioMs（シナリオ開始から）、hintAtMs は常に null。
-- 解説は「今回の根拠／見比べた情報／次に取る行動」の要点（Scenario.keyPoints）を先に表示し、詳しい解説は開閉式。
-- テストモードは localStorage に保持。解除時は URL の ?test=1 も消す。
-- 分析：export → validate（NaN/Infinity も ERROR 扱いで停止しない）→ select_sample（複数版なら --content-version 必須）→ analyze_primary（単一版を確認、|Z| と r の符号を定義、c・確信度・SUS・priorPlays=0 感度分析）。
+- ヒントは探索画面、ログはhintAtScenarioMs。解説は根拠・比較・行動の要点＋開閉式の詳細。
+- 前回のURL試験モード解除・混在版の選択停止・非有限値検証・教材の根拠と表示改善を確認。
+- 公開ページで本編6問の進行を確認。ただし戻る／再入場で画面とphaseが不一致になり操作不能になる経路が残る（A1）。
 
 ## Last Work
-Claude Code（2026-10-01）：Codex の docs/content-and-update-review.md と docs/player-feedback-assessment.md に対応。
-- T1〜T4 採用（解除時のURL、版の単一化、非有限値、依存宣言・README・副次評価・r の符号）
-- 本編：S1 に公式サイトのメモ（relevantIds=メモ＋スマホ）、S2「今日、青森市内で事故」、S3 をスマホのメモ×ブラウザ警告に、S4 のヒント・状況・https 化・断定の緩和、S101 のメモ具体化と母の通知の無関係化、S102「みずほ銀行アプリ」、カレンダーの曜日を2026年に
-- テスト：F2 の A/B 構造と「身に覚え」をそろえる、PRE_F1/POST_F1/PRE_S1/POST_S1/PRE_S2/PRE_S3/POST_S2/POST_S3 の根拠・表現
-- 表示：送信元・リンク・要求のラベル分け、文字を text-sm に、解説の要点表示
-- ヒントの入口：ユーザー案で探索画面のボタンに一本化
-- 不採用：S2（認証コード/パスワード変更）の作り替え（実データなしで別の非対称を生む恐れ。分析計画に異質性を明記）、既有知識での照合省略への対策・強制閲覧・出題順固定・対象年齢拡大（感想1件では根拠不足）
+Claude Code（2026-10-01）：Codex の docs/release-readiness-review.md（公開前レビュー）に対応。
+- A1（戻る／再入場で本編が操作不能）を修正：行き先を phase ではなく回答済みデータで決める `lib/progress.ts`（resumePath）。同意・属性・事前テストは回答済みなら正しい場所へ送り phase を巻き戻さない、ゲーム画面は本編終了後なら結果側へ・途中なら段階を exploring に正規化
+- 画面経由の回帰確認 `scripts/check_navigation.cjs`（Edge ヘッドレス＋CDP、Firestore 遮断）：公開ページで 11/11 OK
+- A3 の一部：公開ページで testRun の完了済みセッションの結果画面→「送信済み（サーバーで確認）」→ Admin export→ validate ERROR 0 を確認し、そのテスト用データは削除
+- A4/A5：`docs/公開前チェックリスト.md`（実機確認・試遊/本収集の手順・監視と緊急停止）、緊急停止ルール `firestore.rules.lockdown` と `firebase.lockdown.json`（dry run でコンパイル確認、未適用）
+- 教材・ログ構造は変えていない（版は 2026-10-06 / schema 4 のまま）
 
 ## Changed Files
-- `scenarios/*.ts`・`types.ts`（keyPoints）、`lib/pretest.ts`・`lib/transferTest.ts`
-- `app/game/GameClient.tsx`（ヒントボタン・カード、ラベル、文字）、`components/ui/{ConfidenceSlider,FeedbackCard,QuizRunner}.tsx`、`app/page.tsx`（T1）
-- `store/gameStore.ts`（takeHint ※ useHint から改名：lint がフックと誤認するため、hintAtScenarioMs）、`lib/version.ts`
-- `analysis/{validate_export,select_sample,analyze_primary,export_firestore}.py`、`check_store.mjs`（9ケース）、`simulate_sessions.ts`、`items.json`、`requirements.txt`、`README.md`
-- `docs/分析計画.md`・`パイロット実施手順.md`・`難易度ルーブリック.md`（旧版の注意書き）
+- 新規 `lib/progress.ts`、`scripts/check_navigation.cjs`、`firestore.rules.lockdown`、`firebase.lockdown.json`、`docs/公開前チェックリスト.md`
+- `app/consent/page.tsx`、`app/intake/page.tsx`、`app/pretest/PretestClient.tsx`、`app/game/GameClient.tsx`、`analysis/README.md`、`docs/パイロット実施手順.md`
 
 ## Decisions
-- 既決定を継続（コレクション維持・research/free 分離、統制群なし、各テスト6問、フォームのランダム割付、旧版の強制リセットなし、表示集計の重複排除なし、参加者コードで照合）。
-- ヒントは探索画面のボタン1つ（ユーザー判断）。「減点なし」等の採点に関する表示はしない。
-- docs/project.md（北極星）は CLAUDE.md の規約により直接変更せず、更新案をユーザーに提示済み（一次指標の RT 短縮・転移60%目標などが現行の分析計画と不一致）。
+- 今回は調査・評価であり、A1の修正実装は未実施。全面改修や公開直前の問題追加は不要。
+- カード維持、research/free分離、単群事前事後、各テスト6問、ランダム割付、旧版強制リセットなし、担当者記録での参加者照合を継続。
+- 本収集も公開日から始めるかは未回答。レビューは試遊公開と本収集開始を区別して記載。
+- docs/project.md等の状態ファイルの変更案は規約どおり人間のレビュー対象。今回は直接変更しない。
 
 ## Verification
-- `pnpm exec tsc --noEmit`・`pnpm lint`：成功。GitHub Actions：下記コミットで確認
-- `node analysis/check_store.mjs`：9/9 OK（?test=1 の画面で解除→開始で本番扱い、を追加）
-- 再現データ：NaN/Infinity を ERROR 検出し停止しない／複数版は版指定なしで停止、指定で対象外の版を除外／analyze_primary の全出力（c・確信度・SUS・感度分析）を確認
-- 未確認：実機（ヒントボタンの位置・重なり、要点の開閉、ラベル・文字サイズ）、ローカル build
+- `pnpm exec tsc --noEmit`・`pnpm lint`：成功。GitHub Actions：成功
+- `node scripts/check_navigation.cjs https://eguchi-kd.github.io/senior-thesis-prototype/`：11/11 OK（ログ件数は増えない）
+- 実保存（A3）：公開ページ→本番 Firestore→export→validate で ERROR 0（テスト用データは削除済み）
+- 本番 DB のテスト36件の ERROR は旧版（版の記録なし）と開発用直行（同意なし）由来で、現行版の問題ではない
+- 匿名集計 stats/festival2026 に非テストのプレイ1件分あり（本収集前にリセット：チェックリスト参照）
+- ローカルの開発サーバーはメモリ不足で応答せず、回帰確認は公開ページで実施
+- 未確認：実機（Android Chrome / iOS Safari）のタッチ操作・通信断からの復帰・発熱
 
 ## Known Issues
-- 実機・ブラウザでの通し確認が未実施。
-- 本編ログに判定した通知ID・理由はない（主張は即時判断成績に限定）。
-- 現行18問の難易度の再採点はパイロット後。所要時間と倫理申請「約10分」の差。部屋の衝突判定なし。ローカル `.env.local` なし。`orchestrator/`・`Microsoft/` は触らない。
+- A1：GameClientのstageがtransfer_test以外のsurvey/resultをmainに戻し、調査がphaseで拒否される。事前テスト再訪でもphase巻き戻しの構造がある。
+- A2/A3：実機操作・最終保存・通信復帰と実exportは公開前に確認が必要。
+- A4/A5：初回選択だけでは本人初回を保証しない。認証なし書き込みの既存判断は、一般公開の範囲に応じて再確認。
+- 本編の通知ID・判断理由・解説閲覧は未収集。即時判断成績を超える主張はできない。
+- 行動・RT等の副次集計はanalyze_primaryでは未出力。project.mdと分析計画、analysis/README末尾に不一致あり。
+- 難易度再採点・所要時間の確認、衝突判定なし等の既存課題を継続。ローカル.env.localなし。
 
 ## Next Steps
-1. 実機で確認（ヒントボタン、要点表示、ラベル、研究/自由プレイ、テストモード解除、通信断→復帰）
-2. パイロット → export（--include-test）→ validate → select_sample（--include-test --content-version 2026-10-06 --staff）→ analyze_primary
-3. project.md の更新可否をユーザーが判断。パイロット後に難易度の再採点と問題の最終確定、版・items.json・計画の固定
+1. Claude Code：レビューA1を最小修正。途中・最終解説・事後・アンケート・研究/自由結果からの戻る／再入場を確認。ログをリセットしない。
+2. 型チェック・lint・既存テスト・build、実機Android/iOSで確認。
+3. テストモードで実保存→通信断復帰→export→validate→select→analyzeを通す。
+4. 公開範囲と本収集開始を確定。対象版を固定し、本番端末のテストモード解除を確認。
 
 ## Last Agent
-Claude Code
+Codex

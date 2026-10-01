@@ -1,0 +1,15 @@
+rules_version = '2';
+
+// 緊急停止用ルール（異常な書き込み・利用量の急増などが起きたときに使う）。
+// すべての読み書きを止める。ゲーム自体は動くが、ログは保存されない（端末側に保持され、ルールを戻すと再送される分もある）。
+//
+// 適用：  firebase deploy --only firestore:rules --config firebase.lockdown.json
+//   もしくは firestore.rules を一時的にこの内容で置き換えて firebase deploy --only firestore:rules
+// 戻す：  通常の firestore.rules で firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

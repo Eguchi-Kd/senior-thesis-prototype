@@ -38,7 +38,10 @@ async function main() {
       const m = JSON.parse(raw);
       if (m.id) { const p = pending.get(m.id); pending.delete(m.id); m.error ? p.reject(new Error(JSON.stringify(m.error))) : p.resolve(m.result); }
       if (m.method === "Fetch.requestPaused") void send("Fetch.failRequest", { requestId: m.params.requestId, errorReason: "BlockedByClient" });
-      if (m.method === "Runtime.exceptionThrown") errors.push(m.params.exceptionDetails.text);
+      if (m.method === "Runtime.exceptionThrown") {
+        const d = m.params.exceptionDetails;
+        errors.push(`${d.text} ${(d.exception?.description || "").split(String.fromCharCode(10))[0]} @${d.url || ""}`);
+      }
     });
     await send("Fetch.enable", { patterns: [{ urlPattern: "*firestore.googleapis.com*" }, { urlPattern: "*firebaseio.com*" }] });
     await send("Page.enable"); await send("Runtime.enable");
@@ -77,7 +80,8 @@ async function main() {
 
     async function openWith(state, page) {
       const script = await send("Page.addScriptToEvaluateOnNewDocument", {
-        source: `if (!sessionStorage.getItem('__seeded')) { sessionStorage.setItem('scamDetective.session', ${JSON.stringify(JSON.stringify({ ...base, state }))}); sessionStorage.setItem('__seeded','1'); }`,
+        // about:blank では sessionStorage が使えないため try で囲む（アプリの例外と区別するため）
+        source: `try { if (!sessionStorage.getItem('__seeded')) { sessionStorage.setItem('scamDetective.session', ${JSON.stringify(JSON.stringify({ ...base, state }))}); sessionStorage.setItem('__seeded','1'); } } catch (e) {}`,
       });
       await send("Page.navigate", { url: "about:blank" });
       await evaluate("1");
