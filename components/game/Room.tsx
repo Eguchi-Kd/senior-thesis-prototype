@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { Scenario } from "@/scenarios/types";
+import { asset } from "@/lib/basePath";
 
 const ROOM_W = 3.6; // 幅(x)
 const ROOM_H = 2.7; // 高さ(y)（圧迫感を減らすため 2.5→2.7）
@@ -193,6 +194,69 @@ function InteractableObject({
   );
 }
 
+// ─── 窓の外（レース越しのやわらかい景色のループ映像） ─────────────
+// 時刻・季節・天気が読み取れない中立な背景にしている（問題の手がかりと誤解させないため）。
+// 映像を再生できない端末（iPhone の低電力モード等）では静止画、静止画も読めなければ従来の単色の空。
+// 映像は scripts/make_window_loop.py で生成。
+function WindowView({ width, height }: { width: number; height: number }) {
+  const [texture, setTexture] = useState<THREE.Texture | null>(null);
+
+  useEffect(() => {
+    let disposed = false;
+    let still: THREE.Texture | null = null;
+    let videoTex: THREE.VideoTexture | null = null;
+
+    new THREE.TextureLoader().load(asset("/textures/window_loop.jpg"), (t) => {
+      if (disposed) return t.dispose();
+      t.colorSpace = THREE.SRGBColorSpace;
+      still = t;
+      setTexture((cur) => cur ?? t);
+    });
+
+    const video = document.createElement("video");
+    video.src = asset("/textures/window_loop.mp4");
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+    video.setAttribute("playsinline", "");
+    video.preload = "auto";
+    video.play().then(() => {
+      if (disposed) return;
+      videoTex = new THREE.VideoTexture(video);
+      videoTex.colorSpace = THREE.SRGBColorSpace;
+      setTexture(videoTex);
+    }).catch(() => { /* 自動再生できない端末では静止画のまま */ });
+
+    // 画面が隠れている間は止める（電池・発熱を抑える）
+    const onVisibility = () => {
+      if (document.hidden) video.pause();
+      else if (videoTex) void video.play().catch(() => {});
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      disposed = true;
+      document.removeEventListener("visibilitychange", onVisibility);
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+      videoTex?.dispose();
+      still?.dispose();
+    };
+  }, []);
+
+  return (
+    <mesh position={[0, 0, -0.05]}>
+      <planeGeometry args={[width, height]} />
+      {texture ? (
+        <meshBasicMaterial map={texture} toneMapped={false} />
+      ) : (
+        <meshStandardMaterial color="#bfe0f5" emissive="#eaf6ff" emissiveIntensity={0.7} />
+      )}
+    </mesh>
+  );
+}
+
 // ─── メインルーム（在宅ワークのワンルーム／温かい生活感） ─────────────
 export function Room({ onInspect, scenario }: { onInspect: (id: string) => void; scenario: Scenario }) {
   const HX = ROOM_W / 2; // 1.8
@@ -258,11 +322,8 @@ export function Room({ onInspect, scenario }: { onInspect: (id: string) => void;
       {/* ─── 窓＋カーテン（左壁・詳細版） ─── */}
       {/* group ローカル: +z が室内向き。壁(x=-1.8)から離して z-fighting を回避 */}
       <group position={[-1.74, 1.5, 0.9]} rotation={[0, Math.PI / 2, 0]}>
-        {/* 外の空（ガラスの奥） */}
-        <mesh position={[0, 0, -0.05]}>
-          <planeGeometry args={[1.16, 1.0]} />
-          <meshStandardMaterial color="#bfe0f5" emissive="#eaf6ff" emissiveIntensity={0.7} />
-        </mesh>
+        {/* 外の景色（ガラスの奥） */}
+        <WindowView width={1.16} height={1.0} />
         {/* ガラス（薄い青・半透明・昼光） */}
         <mesh position={[0, 0, 0]}>
           <boxGeometry args={[1.16, 1.0, 0.01]} />
