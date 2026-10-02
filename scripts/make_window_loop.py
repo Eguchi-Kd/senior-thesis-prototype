@@ -1,5 +1,5 @@
 """
-3Dルームの窓に流すループ映像（レース越しのやわらかい景色）を生成する。
+3Dルームの窓に流すループ映像（やわらかい色調の空・雲・揺れる枝葉）を生成する。
 出力: public/textures/window_loop.mp4（H.264・音声なし）と window_loop.jpg（再生できない時の静止画）
   python scripts/make_window_loop.py
 必要: numpy, scipy, pillow, imageio-ffmpeg（ffmpeg 同梱）
@@ -37,8 +37,8 @@ def cloud_spectrum():
     f = np.fft.fft2(noise)
     ky = np.fft.fftfreq(H)[:, None]
     kx = np.fft.fftfreq(W)[None, :]
-    k = np.sqrt((kx * 1.0) ** 2 + (ky * 1.6) ** 2)  # 雲は横長
-    f *= np.exp(-(k / 0.018) ** 2) + 0.35 * np.exp(-(k / 0.045) ** 2)
+    k = np.sqrt((kx * 2.2) ** 2 + (ky * 1.0) ** 2)  # 横方向の変化をゆるやかにして、雲を横長にする
+    f *= np.exp(-(k / 0.03) ** 2) + 0.18 * np.exp(-(k / 0.07) ** 2)
     return f, kx
 
 
@@ -46,7 +46,7 @@ def clouds(f, kx, t):
     """時刻 t（0〜1）の雲。1周期で W ピクセル右へずれ、t=1 で t=0 と一致する"""
     shifted = np.real(np.fft.ifft2(f * np.exp(-2j * np.pi * kx * W * t)))
     c = (shifted - shifted.mean()) / (shifted.std() + 1e-6)
-    mask = np.clip((c - 0.15) * 0.55, 0, 1)                 # 雲の濃さ
+    mask = np.clip((c - 0.3) * 0.7, 0, 0.85)                # 雲の濃さ（ふちは柔らかく）
     fade = np.clip(1.2 - np.linspace(0, 1, H), 0, 1)[:, None]  # 下ほど薄く
     return mask * fade
 
@@ -71,27 +71,7 @@ def tree_layer():
     return img, (px, py)
 
 
-def lace():
-    """レースカーテンの模様（白・半透明）。ぼかさずに最前面へ重ねる"""
-    a = np.zeros((H, W), np.float32)
-    a[:, ::9] += 0.10   # 縦糸
-    a[::9, :] += 0.10   # 横糸
-    img = Image.new("L", (W, H), 0)
-    d = ImageDraw.Draw(img)
-    for y in range(-24, H + 24, 52):
-        for x in range(-24, W + 24, 52):
-            ox = 26 if (y // 52) % 2 else 0
-            cx, cy = x + ox, y
-            for k in range(6):  # 小さな花
-                ang = k * np.pi / 3
-                dx, dy = 7 * np.cos(ang), 7 * np.sin(ang)
-                d.ellipse([cx + dx - 4, cy + dy - 4, cx + dx + 4, cy + dy + 4], outline=60, width=1)
-            d.ellipse([cx - 2, cy - 2, cx + 2, cy + 2], fill=70)
-    a += np.asarray(img, np.float32) / 255
-    return np.clip(gaussian_filter(a, 0.5), 0, 0.45)[..., None]
-
-
-def frame(i, base, f, kx, tree, pivot, lace_a):
+def frame(i, base, f, kx, tree, pivot):
     t = i / N
     img = base.copy()
     c = clouds(f, kx, t)[..., None]
@@ -102,11 +82,10 @@ def frame(i, base, f, kx, tree, pivot, lace_a):
     small = np.asarray(rot.resize((W, H), Image.LANCZOS), np.float32)
     al = small[..., 3:4] / 255
     img = img * (1 - al) + small[..., :3] * al
-    # レース越しの奥行き：全体を強くぼかす
-    img = gaussian_filter(img, sigma=(5, 5, 0))
+    # 遠景らしさだけ残す軽いぼかし（窓がくっきり見えるよう弱め）
+    img = gaussian_filter(img, sigma=(1.2, 1.2, 0))
     # 暖色寄りの色味（部屋の電球色に合わせる）とごく弱い明るさの揺らぎ
     img = img * np.array([1.03, 1.0, 0.95]) * (1 + 0.015 * np.sin(2 * np.pi * t))
-    img = img * (1 - lace_a) + 255 * lace_a
     return np.clip(img, 0, 255).astype(np.uint8)
 
 
@@ -116,10 +95,9 @@ def main():
     base = sky()
     f, kx = cloud_spectrum()
     tree, pivot = tree_layer()
-    lace_a = lace()
-    frames = [frame(i, base, f, kx, tree, pivot, lace_a) for i in range(N)]
+    frames = [frame(i, base, f, kx, tree, pivot) for i in range(N)]
     # 継ぎ目の確認：最後の次（= t=1）のフレームが最初と一致するか
-    wrap = frame(N, base, f, kx, tree, pivot, lace_a)
+    wrap = frame(N, base, f, kx, tree, pivot)
     print("ループの継ぎ目（最初との差の平均）:", float(np.abs(wrap.astype(int) - frames[0].astype(int)).mean()))
     Image.fromarray(frames[0]).save(OUT / "window_loop.jpg", quality=88)
     cmd = [imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",

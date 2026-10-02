@@ -262,7 +262,8 @@ function WindowView({ width, height }: { width: number; height: number }) {
     <mesh position={[0, 0, -0.05]}>
       <planeGeometry args={[width, height]} />
       {texture ? (
-        <meshBasicMaterial map={texture} toneMapped={false} />
+        // 少し暗く掛けてブルーム（明るい部分のにじみ）のしきい値を下回らせ、外がくっきり見えるようにする
+        <meshBasicMaterial map={texture} color="#d8d8d8" toneMapped={false} />
       ) : (
         <meshStandardMaterial color="#bfe0f5" emissive="#eaf6ff" emissiveIntensity={0.7} />
       )}
@@ -337,10 +338,10 @@ export function Room({ onInspect, scenario }: { onInspect: (id: string) => void;
       <group position={[-1.74, 1.5, 0.9]} rotation={[0, Math.PI / 2, 0]}>
         {/* 外の景色（ガラスの奥） */}
         <WindowView width={1.16} height={1.0} />
-        {/* ガラス（薄い青・半透明・昼光） */}
+        {/* ガラス（ほぼ透明。外の景色を曇らせない程度のわずかな反射感だけ） */}
         <mesh position={[0, 0, 0]}>
           <boxGeometry args={[1.16, 1.0, 0.01]} />
-          <meshStandardMaterial color="#d5ecf7" emissive="#fff6e6" emissiveIntensity={0.35} transparent opacity={0.35} roughness={0.05} metalness={0.1} />
+          <meshStandardMaterial color="#e6f3fa" transparent opacity={0.06} roughness={0.05} metalness={0.1} depthWrite={false} />
         </mesh>
         {/* 外枠（上下左右） */}
         <mesh position={[0, 0.52, 0.03]}><boxGeometry args={[1.28, 0.09, 0.07]} /><meshStandardMaterial color="#f3ede2" roughness={0.7} /></mesh>
