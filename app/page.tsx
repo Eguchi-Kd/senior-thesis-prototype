@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { resolveTestMode, saveTestMode } from "@/lib/testMode";
+import { resolveWindowCity } from "@/lib/windowView";
 import { useGameStore } from "@/store/gameStore";
 
 const PLAY_COUNT_KEY = "scamDetective.playCount";
@@ -41,6 +42,8 @@ export default function TitlePage() {
   const [showDev, setShowDev] = useState(false);
   useEffect(() => {
     const on = resolveTestMode();
+    // 窓の外の都市風景（検証用）：?city=1 / ?city=0 をここで端末に保存する（3Dルームへ進むと URL のクエリが消えるため）
+    resolveWindowCity();
     setShowDev(on);
     useGameStore.setState({ testRun: on });
   }, []);
