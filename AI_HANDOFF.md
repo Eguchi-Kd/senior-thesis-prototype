@@ -4,7 +4,8 @@
 10/3 大学祭の掲示用 A1 ポスターと、未成年向け同意関係の文書を当日使える状態にする。本収集は 10/3。新URLは `https://eguchi-kd.github.io/scam-detective/`。
 
 ## Current State
-- 教材版 `2026-10-10`、schemaVersion 5（ゲーム本体は変更なし）。
+- 教材版 `2026-10-10`、schemaVersion 5。
+- 窓の外にレース越しのやわらかい景色のループ映像（`public/textures/window_loop.mp4`・12秒・約290KB、生成は `scripts/make_window_loop.py`）。時刻・天気が読み取れない中立な背景。再生できない端末は静止画 `window_loop.jpg`、画面が隠れたら一時停止。表示だけの変更なので版は上げていない（e29468b・e2307bc）。両URLに配信済み、ヘッドレスで再生を確認。**実機（特に iPhone 低電力モード）での表示・発熱は未確認**。
 - 配信専用の公開リポジトリ `scam-detective` へ配信済み。旧URL（senior-thesis-prototype）も deploy.yml で動き続けている。旧リポジトリの非公開化・deploy.yml 削除は大学祭の後。
 - **修正を新URLに反映するには push に加えて publish.yml の手動実行が必要**（本収集の期間中は配信を更新しない）。
 - ポスター一式は `docs/poster/`（未コミット）：poster_gen.py → poster.pptx、export.ps1 → poster_A1.pdf・preview.png、split_a3.py → poster_A3x4.pdf（A3×4枚、仕上がり約 554×784mm、QR は2ページ目＝右上）。客寄せ4割・研究説明6割。デザインは中間発表スライド（`docs/卒業研究_中間発表.pptx`）に合わせた：紙の白地 #FBFBF7・メイリオ・チャコール #32363B＋赤 #C23A2B・マスキングテープ付きの白カード・赤い輪郭の番号見出し（文面は変更なし）。
