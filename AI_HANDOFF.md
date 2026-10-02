@@ -7,7 +7,7 @@
 - 教材版 `2026-10-10`、schemaVersion 5（ゲーム本体は変更なし）。
 - 配信専用の公開リポジトリ `scam-detective` へ配信済み。旧URL（senior-thesis-prototype）も deploy.yml で動き続けている。旧リポジトリの非公開化・deploy.yml 削除は大学祭の後。
 - **修正を新URLに反映するには push に加えて publish.yml の手動実行が必要**（本収集の期間中は配信を更新しない）。
-- ポスター一式は `docs/poster/`（未コミット）：poster_gen.py → poster.pptx、export.ps1 → poster_A1.pdf・preview.png、split_a3.py → poster_A3x4.pdf（A3×4枚、仕上がり約 554×784mm、QR は2ページ目＝右上）。客寄せ4割・研究説明6割。
+- ポスター一式は `docs/poster/`（未コミット）：poster_gen.py → poster.pptx、export.ps1 → poster_A1.pdf・preview.png、split_a3.py → poster_A3x4.pdf（A3×4枚、仕上がり約 554×784mm、QR は2ページ目＝右上）。客寄せ4割・研究説明6割。デザインは中間発表スライド（`docs/卒業研究_中間発表.pptx`）に合わせた：紙の白地 #FBFBF7・メイリオ・チャコール #32363B＋赤 #C23A2B・マスキングテープ付きの白カード・赤い輪郭の番号見出し（文面は変更なし）。
 - Codex ポスターレビュー（`docs/poster-review.md`）の指摘はすべて反映済み。
 - 同意関係3文書（保護者向け説明書・保護者同意書・アセント、docx と md）を簡略化済み（未コミット、旧版は `docs/同意書_旧版_2026-10-02/`）。各 A4 1ページ。
 
