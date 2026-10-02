@@ -220,23 +220,36 @@ function WindowView({ width, height }: { width: number; height: number }) {
     video.playsInline = true;
     video.setAttribute("playsinline", "");
     video.preload = "auto";
-    video.play().then(() => {
-      if (disposed) return;
-      videoTex = new THREE.VideoTexture(video);
-      videoTex.colorSpace = THREE.SRGBColorSpace;
-      setTexture(videoTex);
-    }).catch(() => { /* 自動再生できない端末では静止画のまま */ });
+
+    // 再生できたら映像に切り替える。すぐに再生できない場合は、読み込み完了時と最初の操作時に試し直す
+    const tryPlay = () => {
+      if (disposed || document.hidden) return;
+      video.play().then(() => {
+        if (disposed || videoTex) return;
+        videoTex = new THREE.VideoTexture(video);
+        videoTex.colorSpace = THREE.SRGBColorSpace;
+        setTexture(videoTex);
+      }).catch(() => { /* 自動再生できない端末では静止画のまま */ });
+    };
+    tryPlay();
+    video.addEventListener("canplay", tryPlay, { once: true });
+    const onFirstInput = () => { if (video.paused) tryPlay(); };
+    window.addEventListener("pointerdown", onFirstInput, { once: true });
+    window.addEventListener("keydown", onFirstInput, { once: true });
 
     // 画面が隠れている間は止める（電池・発熱を抑える）
     const onVisibility = () => {
       if (document.hidden) video.pause();
-      else if (videoTex) void video.play().catch(() => {});
+      else tryPlay();
     };
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       disposed = true;
       document.removeEventListener("visibilitychange", onVisibility);
+      video.removeEventListener("canplay", tryPlay);
+      window.removeEventListener("pointerdown", onFirstInput);
+      window.removeEventListener("keydown", onFirstInput);
       video.pause();
       video.removeAttribute("src");
       video.load();
