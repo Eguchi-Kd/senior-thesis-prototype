@@ -55,3 +55,6 @@ analysis/__pycache__/
 
 # 配信専用リポジトリ向けに整理したビルド出力（scripts/prepare_publish.mjs が作る）
 /publish/
+
+# Blender の自動バックアップ
+*.blend1

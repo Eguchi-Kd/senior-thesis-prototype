@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { Scenario } from "@/scenarios/types";
 import { asset } from "@/lib/basePath";
+import { resolveWindowCity } from "@/lib/windowView";
+import { ModelErrorBoundary } from "./ModelErrorBoundary";
+import { WindowCity } from "./WindowCity";
 
 const ROOM_W = 3.6; // 幅(x)
 const ROOM_H = 2.7; // 高さ(y)（圧迫感を減らすため 2.5→2.7）
@@ -271,13 +274,35 @@ function WindowView({ width, height }: { width: number; height: number }) {
   );
 }
 
+// 窓の開口（左壁 x=-1.8 上の範囲。ガラス 1.16×1.0 と同じ）
+const WIN = { z0: 0.32, z1: 1.48, y0: 1.0, y1: 2.0 };
+
+// 都市風景の読み込み中・失敗時：開口の位置に従来のループ映像を置いて窓をふさぐ
+function CityFallback() {
+  return (
+    <group position={[-1.79, 1.5, 0.9]} rotation={[0, Math.PI / 2, 0]}>
+      <WindowView width={1.16} height={1.0} />
+    </group>
+  );
+}
+
 // ─── メインルーム（在宅ワークのワンルーム／温かい生活感） ─────────────
 export function Room({ onInspect, scenario }: { onInspect: (id: string) => void; scenario: Scenario }) {
   const HX = ROOM_W / 2; // 1.8
   const HZ = ROOM_D / 2; // 2.7
+  // 窓の外を都市風景（3D）にするか（テストモードで ?city=1 のときだけ。lib/windowView.ts）
+  const [cityView] = useState(resolveWindowCity);
 
   return (
     <group>
+      {/* 窓の外の都市風景。読み込み中・失敗時は従来のループ映像で窓をふさぐ */}
+      {cityView && (
+        <ModelErrorBoundary fallback={<CityFallback />}>
+          <Suspense fallback={<CityFallback />}>
+            <WindowCity />
+          </Suspense>
+        </ModelErrorBoundary>
+      )}
       {/* ─── 照明（温かい電球色ベース） ─── */}
       <ambientLight intensity={0.5} color="#ffe8cc" />
       <pointLight position={[0, 2.4, -0.2]} intensity={0.85} color="#ffdca8" castShadow shadow-mapSize={[1024, 1024]} />
@@ -310,10 +335,33 @@ export function Room({ onInspect, scenario }: { onInspect: (id: string) => void;
         <planeGeometry args={[ROOM_W, ROOM_H]} />
         <meshStandardMaterial color="#e8ddcf" roughness={0.95} />
       </mesh>
-      <mesh rotation={[0, Math.PI / 2, 0]} position={[-HX, ROOM_H / 2, 0]} receiveShadow>
-        <planeGeometry args={[ROOM_D, ROOM_H]} />
-        <meshStandardMaterial color="#e0d3c1" roughness={0.95} />
-      </mesh>
+      {cityView ? (
+        // 都市風景（3D）を見せるときは、左壁に窓の開口をあけ、壁の厚み（額縁）を付ける
+        <>
+          {([
+            [-HZ, WIN.z0, 0, ROOM_H], [WIN.z1, HZ, 0, ROOM_H], [WIN.z0, WIN.z1, 0, WIN.y0], [WIN.z0, WIN.z1, WIN.y1, ROOM_H],
+          ] as [number, number, number, number][]).map(([z0, z1, y0, y1], i) => (
+            <mesh key={i} rotation={[0, Math.PI / 2, 0]} position={[-HX, (y0 + y1) / 2, (z0 + z1) / 2]} receiveShadow>
+              <planeGeometry args={[z1 - z0, y1 - y0]} />
+              <meshStandardMaterial color="#e0d3c1" roughness={0.95} />
+            </mesh>
+          ))}
+          {([
+            [WIN.z1 - WIN.z0, 0.04, (WIN.z0 + WIN.z1) / 2, WIN.y1 + 0.02], [WIN.z1 - WIN.z0, 0.04, (WIN.z0 + WIN.z1) / 2, WIN.y0 - 0.02],
+            [0.04, WIN.y1 - WIN.y0, WIN.z0 - 0.02, (WIN.y0 + WIN.y1) / 2], [0.04, WIN.y1 - WIN.y0, WIN.z1 + 0.02, (WIN.y0 + WIN.y1) / 2],
+          ] as [number, number, number, number][]).map(([w, h, z, y], i) => (
+            <mesh key={`j${i}`} position={[-HX - 0.08, y, z]}>
+              <boxGeometry args={[0.2, h, w]} />
+              <meshStandardMaterial color="#d8cab6" roughness={0.95} />
+            </mesh>
+          ))}
+        </>
+      ) : (
+        <mesh rotation={[0, Math.PI / 2, 0]} position={[-HX, ROOM_H / 2, 0]} receiveShadow>
+          <planeGeometry args={[ROOM_D, ROOM_H]} />
+          <meshStandardMaterial color="#e0d3c1" roughness={0.95} />
+        </mesh>
+      )}
       <mesh rotation={[0, -Math.PI / 2, 0]} position={[HX, ROOM_H / 2, 0]}>
         <planeGeometry args={[ROOM_D, ROOM_H]} />
         <meshStandardMaterial color="#e0d3c1" roughness={0.95} />
@@ -336,8 +384,8 @@ export function Room({ onInspect, scenario }: { onInspect: (id: string) => void;
       {/* ─── 窓＋カーテン（左壁・詳細版） ─── */}
       {/* group ローカル: +z が室内向き。壁(x=-1.8)から離して z-fighting を回避 */}
       <group position={[-1.74, 1.5, 0.9]} rotation={[0, Math.PI / 2, 0]}>
-        {/* 外の景色（ガラスの奥） */}
-        <WindowView width={1.16} height={1.0} />
+        {/* 外の景色（ガラスの奥）。都市風景（3D）のときは壁の開口の向こうに描くので映像は出さない */}
+        {!cityView && <WindowView width={1.16} height={1.0} />}
         {/* ガラス（ほぼ透明。外の景色を曇らせない程度のわずかな反射感だけ） */}
         <mesh position={[0, 0, 0]}>
           <boxGeometry args={[1.16, 1.0, 0.01]} />
