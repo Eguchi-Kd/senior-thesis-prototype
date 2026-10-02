@@ -175,5 +175,21 @@ st().markScenarioStart();
 s9 = st();
 check("再読み込み後は途中状態をリセットし restarted を付ける", !s9.hintUsed && s9.currentInspected.length === 0 && s9.scenarioRestarted === true);
 
+// 12. 調査パネルを開いたまま本編を離れる → 離れた時点で閉じる（GameClient のアンマウント時の closeInspect）。
+//     離れていた時間は dwellMs に入らず、再入場で値が変わらない
+st().reset();
+st().setConsent(true);
+st().setPhase("exploring");
+st().markScenarioStart();
+st().recordInspect("smartphone");
+const busy = (ms) => { const end = performance.now() + ms; while (performance.now() < end); };
+busy(30);
+st().closeInspect(); // 本編画面のアンマウント（離脱）
+const dwellAtLeave = st().currentInspectEvents[0].dwellMs;
+busy(80); // 別の画面にいた時間
+st().markScenarioStart(); // 再入場
+const dwellAfter = st().currentInspectEvents[0].dwellMs;
+check("離脱時に閉じた調査の dwellMs に離れていた時間が入らない", dwellAtLeave >= 30 && dwellAtLeave < 80 && dwellAfter === dwellAtLeave, `leave=${dwellAtLeave} after=${dwellAfter}`);
+
 console.log(failures ? `\n${failures} 件 FAIL` : "\nすべて OK");
 process.exit(failures ? 1 : 0);

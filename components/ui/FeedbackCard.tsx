@@ -13,10 +13,11 @@ interface Props {
   cardEmoji?: string;
   newCard: boolean; // この端末で初めて入手したカードか
   isLast: boolean;
+  nextNumber: number; // 次の問題の番号（ボタンに「第n問へ進む」と出す）
   onNext: () => void;
 }
 
-export function FeedbackCard({ correct, title, explanation, learningPoint, keyPoints, cardEmoji, newCard, isLast, onNext }: Props) {
+export function FeedbackCard({ correct, title, explanation, learningPoint, keyPoints, cardEmoji, newCard, isLast, nextNumber, onNext }: Props) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -92,7 +93,7 @@ export function FeedbackCard({ correct, title, explanation, learningPoint, keyPo
           onClick={onNext}
           className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold"
         >
-          {isLast ? "結果へ →" : "次のシナリオへ →"}
+          {isLast ? "本編を終える →" : `第${nextNumber}問へ進む →`}
         </button>
       </motion.div>
     </motion.div>

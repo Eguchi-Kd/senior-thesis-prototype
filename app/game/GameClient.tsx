@@ -81,6 +81,8 @@ export default function GameClient() {
     // 入場時に一度だけ判定する
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // 調査パネルを開いたまま本編を離れた場合は、離れた時点で閉じた扱いにする（離れていた時間を dwellMs に入れない）
+  useEffect(() => () => useGameStore.getState().closeInspect(), []);
   const [inspectedId, setInspectedId] = useState<string | null>(null);
   const [showJudge, setShowJudge] = useState(false);
   const [draftDecision, setDraftDecision] = useState<Decision | null>(null);
@@ -474,6 +476,7 @@ export default function GameClient() {
           cardEmoji={scenario.cardEmoji}
           newCard={lastResult.newCard}
           isLast={isLast}
+          nextNumber={currentIndex + 2}
           onNext={handleNext}
         />
       )}

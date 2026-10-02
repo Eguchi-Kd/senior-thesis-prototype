@@ -1,53 +1,45 @@
 # AI HANDOFF
 
 ## Current Goal
-公開直前の修正後レビュー。最新結果は `docs/release-followup-review.md`。2026-10-02の依頼では「明後日」（10/4）、既存チェックリストは10/3のため日程を揃える。
+Codex の問題切替レビュー（`docs/stage-transition-review.md`）C1〜C4・B1補足への対応と、収集ログの論文上の説得力・収集方法の最終確認。本収集は 10/3。
 
 ## Current State
-- 確認対象HEAD `7ff3251`、contentVersion `2026-10-07`、schemaVersion 4。Next.js静的出力＋R3F＋Zustand、GitHub Pages、Firestore。
-- research：同意→属性→事前6問→練習→本編6問→事後6問→アンケート→結果。free：同意→練習→本編→結果。
-- 前回A1の操作不能はresumePathと各画面ガードで修正済み。既存画面試験11/11成功。
-- 新たにB1を再現：ヒント・調査後の実際の戻る→本編復帰で途中履歴が消え、hintUsed=false / restarted=falseで回答が記録される。
-- 企業名の架空化と教材版更新、カード絵文字の追加を確認。正答条件の変更なし。
+- 教材版 `2026-10-10`、schemaVersion 5。
+- 第n問／全6問を約2.2秒表示（位置・大きさはユーザー判断で変更なし）、残り問題数を常時表示。
+- 解説のボタンは「第n問へ進む →」／最終問「本編を終える →」。
+- 調査パネルを開いたまま本編を離れた場合、離れた時点で閉じた扱い（GameClient のアンマウント時に closeInspect）。再入場時の close は保険として残す。
+- prepare_publish.mjs は出力先がリポジトリ直下の `publish` 以外なら何も消さずに停止。
+- 配信専用リポジトリ `scam-detective` はまだ空（dry run のみ成功）。
 
 ## Last Work
-Claude Code（2026-10-02）：友人のテストプレイ感想（11項目）に対応。最終配信 `ea24d1c`、contentVersion `2026-10-09`、schemaVersion 5。本収集は 10/3。
-- 答えの漏れ修正：PRE_F2/POST_F2 の「普段の案内に似た」削除、PRE_S1/POST_S1 の「リンクや入力の要求はありません」削除＋正規リンク付与、S3 の「（突然表示）」削除
-- S3 の偽警告をブラウザの警告画面風に表示（DigitalContent.type に "alert"）、テストの公式情報を枠付きで強調
-- 練習：移動・見回し→スマホと部屋の情報の両方（順番は自由）→ヒント→判定（記録なし・正解なし）。自由プレイは練習を省略可（t_practiceSkipped）
-- 問題開始の「第n問 / 全6問」（特定の物へ誘導しない文言）、進捗バーに「あとn問でクリア！」
-- この端末に過去のプレイ記録がある状態で「はじめて遊ぶ」→本人が初めてか確認（firstTimeConfirmed）
-- 見送り：ストーリー演出（事後だけ“ラスボス”扱いは意欲の交絡になる。本収集後に対称な演出を検討）、スマホへの誘導（ラベル強調・自動で開く：探索の記録に影響するためユーザー判断で不採用）
-- **GitHub Pages の配信元が legacy（master ブランチを Jekyll で公開）に切り替わっていて、README のページが公開されていた**。build_type を workflow に戻して再デプロイ（ゲームの公開を確認）
-
-## Changed Files
-- `lib/pretest.ts`・`lib/transferTest.ts`・`scenarios/scenario3.ts`・`scenarios/practice.ts`・`scenarios/types.ts`
-- `app/game/GameClient.tsx`・`app/page.tsx`・`components/ui/QuizRunner.tsx`・`store/gameStore.ts`・`lib/logger.ts`・`lib/version.ts`
-- `analysis/export_firestore.py`（firstTimeConfirmed・t_practiceSkipped）・`analysis/items.json`・`docs/{分析計画,公開前チェックリスト,パイロット実施手順}.md`
+Claude（2026-10-02）：
+- C1 採用、C2 は変更なし（計測上の注記のみ分析計画へ）、B1 補足を修正（dwellMs が離れていた時間を含まない）→ 版を 2026-10-10 に。
+- C3 を切り替え手順（チェックリスト5）に追記：新URLで直接表示・アセット・戻る・実機保存、localStorage 共有の点検、本収集の途中で切り替えない。
+- C4 の出力先ガードを追加。
+- 分析計画：天井効果の扱い（事前満点の割合を報告・事後に除外しない）、dwellMs の定義、開始案内が探索時間と hintAtScenarioMs に含まれることを追記。
+- チェックリスト：本収集前に最終版で担当者が2〜3回通しプレイ→export→validate。
 
 ## Decisions
-- 今回はレビュー。B1の実装修正は未実施。新規問題や全面改修は不要。
-- カード維持・research/free分離・単群事前事後・各テスト6問・担当者による本人初回照合を継続。
-- 実保存の成功はClaudeの引き継ぎ記録として扱い、Codexが今回独立検証したとは記載しない。
-- 本収集開始と試遊の区別を確定し、最終検証後は配信を固定する。DB削除・ルール適用は未実施。
+- 開始案内は非ブロッキングのまま。RT（初回調査→決定）からは差し引かない。
+- 記録の取り方が変わったので版を上げた（2026-10-09 のデータとは合算しない）。
+- カード維持・research/free分離・単群事前事後・各6問・担当者照合を継続。
 
 ## Verification
-- tsc・lint・check_store 13/13・再現データ validate ERROR 0・CI（ea24d1c）成功
-- 公開ページ：check_navigation 11/11 OK。Codex の実ブラウザ再現を新しい練習の流れに合わせた版（scratchpad の release-followup-v2）で2回成功（戻る前後でヒント・調査の記録が保持、最終ログ hintUsed=true）。練習の流れを実クリックで最後まで通過
-- 画面確認（ヘッドレス Edge）：初回確認ダイアログ、2回目以降→自由プレイ、自由プレイの練習省略、第n問の表示（DOM）、あとn問、S3 の警告画面
-- 未確認：実機（Android/iOS）・通信断からの復帰。Pages 設定が切り替わった原因は不明（誰かが Settings → Pages を変更した可能性）
+- tsc（incremental false）・lint：成功。check_store：14/14（離脱時に閉じた調査の dwellMs のケースを追加）。
+- prepare_publish.mjs：`out` を出力先に `out`・`.`・`out/sub`・`..`・リポジトリ外・`other`・`publish/x` を指定 → すべて停止し、何も削除されない。`out publish` は成功。
+- 公開ページでの check_navigation は commit 後に実施（結果は下記の Last Agent の報告を参照）。
+- 未確認：実機 Android/iOS、通信断からの実同期、新URLでの実プレイ・保存。
 
 ## Known Issues
-- B1：戻る→復帰でヒント・調査・計測を消し、やり直しを識別できない。自力判定と本編の行動・RT分析に影響。
-- B2：権限拒否された書き込みは通常の通信断と異なり、ルール復旧だけで自動再試行を保証できない。再送と欠損記録の手順が必要。
-- 実機チェック未完了。初回の自己選択だけでは本人初回を保証しない。認証なし書き込みの既存リスクは残る。
-- 通知ID・判断理由・解説閲覧は未記録。本編行動・RT集計は別途必要。project.mdの一次指標は現行計画と不一致。
+- 本編の通知ID・判断理由・解説閲覧は未収集（理解の直接測定はない）。行動・RT集計は別途。
+- 本人初回は自己申告＋端末の回数＋担当者記録に頼る。
+- 最終版でのパイロットなし → 難易度・天井効果は本収集の結果で判断（分析計画に事前固定済み）。
+- dwellMs はアプリ切替などの非表示時間を差し引かない。
 
 ## Next Steps
-1. Claude Code：B1を局所修正。同じ未回答問題への再入場と新規開始を区別し、ヒント履歴を未使用に戻さない。実際の戻る操作後のログまで検証。
-2. 緊急停止後の受付停止・再送・欠損記録をチェックリストへ追記。
-3. 最終公開コミットでAndroid/iOSの研究・自由プレイ・通信断復帰を確認。
-4. 公開日・対象版・試遊/本収集を確定。本番端末のテストモードを解除し、本収集中は版を固定。
+1. 担当者が最終版で通しプレイ（テストモード）→ export → validate。実機 Android/iOS の確認。
+2. 本収集の開始時にコミット・版・items.json・分析計画を記録し、期間中は配信を更新しない。
+3. 全修正の完了後に scam-detective へ配信（チェックリスト5）。
 
 ## Last Agent
-Claude Code
+Claude

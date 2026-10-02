@@ -5,12 +5,30 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
 const { minify } = require("next/dist/compiled/terser");
 
 const SRC = path.resolve(process.argv[2] || "out");
 const DST = path.resolve(process.argv[3] || "publish");
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+// 出力先は最初に丸ごと削除するので、誤った指定で他のファイルを消さないように確かめる
+const isInside = (child, parent) => {
+  const rel = path.relative(parent, child);
+  return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
+};
+function assertSafeOutput() {
+  const same = (a, b) => path.relative(a, b) === "";
+  const reasons = [];
+  if (same(DST, SRC)) reasons.push("入力と同じ");
+  if (isInside(SRC, DST)) reasons.push("入力を含む親フォルダ");
+  if (isInside(DST, SRC)) reasons.push("入力の中");
+  if (!isInside(DST, ROOT)) reasons.push("リポジトリのルートまたはその外側");
+  else if (!same(DST, path.join(ROOT, "publish"))) reasons.push("専用フォルダ（リポジトリ直下の publish）以外");
+  if (reasons.length) throw new Error(`出力先が危険なため中止しました（${reasons.join("・")}）: ${DST}`);
+}
 
 // ゲームに不要なファイル（Next のテンプレート画像・説明書き・ソースマップ）
 const REMOVE_NAMES = new Set(["file.svg", "globe.svg", "next.svg", "vercel.svg", "window.svg"]);
@@ -35,6 +53,7 @@ const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) =
 
 async function main() {
   if (!fs.existsSync(SRC)) throw new Error(`ビルド出力がありません: ${SRC}`);
+  assertSafeOutput();
   fs.rmSync(DST, { recursive: true, force: true });
   fs.cpSync(SRC, DST, { recursive: true });
 
