@@ -9,6 +9,8 @@
 - **修正を新URLに反映するには push に加えて publish.yml の手動実行が必要**（本収集の期間中は配信を更新しない）。
 - ポスター一式は `docs/poster/`（未コミット）：poster_gen.py → poster.pptx、export.ps1 → poster_A1.pdf・preview.png、split_a3.py → poster_A3x4.pdf（A3×4枚、仕上がり約 554×784mm、QR は2ページ目＝右上）。客寄せ4割・研究説明6割。デザインは中間発表スライド（`docs/卒業研究_中間発表.pptx`）に合わせた：紙の白地 #FBFBF7・メイリオ・チャコール #32363B＋赤 #C23A2B・マスキングテープ付きの白カード・赤い輪郭の番号見出し（文面は変更なし）。
 - Codex ポスターレビュー（`docs/poster-review.md`）の指摘はすべて反映済み。
+- 客寄せ専用の A3 ポスター：poster_a3_gen.py → poster_a3.pptx、`export.ps1 poster_a3` → poster_a3.pdf・preview_a3.png（1枚で印刷）。QR・研究説明なし、下部に「会場：」の手書き欄。共通のデザインは `docs/poster/style.py`。
+- A1 から「無料」「18歳未満の方は保護者の方と…」（2か所）「青森大学 情報科学研究室」を削除済み（ユーザー指示。未成年の受付確認は口頭で続ける）。
 - 同意関係3文書（保護者向け説明書・保護者同意書・アセント、docx と md）を簡略化済み（未コミット、旧版は `docs/同意書_旧版_2026-10-02/`）。各 A4 1ページ。
 
 ## Last Work
