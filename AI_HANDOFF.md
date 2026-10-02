@@ -27,7 +27,7 @@ Claude（2026-10-02）：
 ## Verification
 - tsc（incremental false）・lint：成功。check_store：14/14（離脱時に閉じた調査の dwellMs のケースを追加）。
 - prepare_publish.mjs：`out` を出力先に `out`・`.`・`out/sub`・`..`・リポジトリ外・`other`・`publish/x` を指定 → すべて停止し、何も削除されない。`out publish` は成功。
-- 公開ページでの check_navigation は commit 後に実施（結果は下記の Last Agent の報告を参照）。
+- 公開ページ（4d4b6ea のデプロイ成功後）で check_navigation 11/11（最終問の解説の確認文言を「本編を終える」に更新）。
 - 未確認：実機 Android/iOS、通信断からの実同期、新URLでの実プレイ・保存。
 
 ## Known Issues

@@ -101,7 +101,7 @@ async function main() {
       ["本編途中 → /intake に戻る → /game へ送られる", { ...mid, phase: "exploring" }, "intake/", (r) => r.path.endsWith("/game/") && r.text.includes("ヒント")],
       ["本編途中 → /pretest に戻る → /game へ送られ操作できる", { ...mid, phase: "exploring" }, "pretest/", (r) => r.path.endsWith("/game/") && r.text.includes("ヒント") && r.phase === "exploring"],
       ["本編終了直後（事後未着手）→ /game で終了画面", { ...done, phase: "transfer_test" }, "game/", (r) => r.text.includes("ゲーム本編クリア")],
-      ["最終問の解説中に再入場 → 同じ解説", { ...done, phase: "feedback" }, "game/", (r) => r.text.includes("結果へ")],
+      ["最終問の解説中に再入場 → 同じ解説", { ...done, phase: "feedback" }, "game/", (r) => r.text.includes("本編を終える")],
       ["事後テスト途中 → /game → 終了画面（事後テストへ戻れる）", { ...done, phase: "transfer_test", transferTestLogs: post.slice(0, 3) }, "game/", (r) => r.text.includes("ゲーム本編クリア")],
       ["アンケート中 → /game → 結果側（アンケート）へ", { ...done, phase: "survey", transferTestLogs: post }, "game/", (r) => r.path.endsWith("/result/") && r.text.includes("アンケート")],
       ["研究の結果 → /game → 結果発表へ", { ...done, phase: "result", transferTestLogs: post, survey, selfEfficacyPost: 4, resultType: "detective" }, "game/", (r) => r.path.endsWith("/result/") && r.text.includes("結果発表")],
