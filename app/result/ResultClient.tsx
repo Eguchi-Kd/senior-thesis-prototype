@@ -9,6 +9,7 @@ import { confirmFinalSave, saveSession, saveSnapshot, toParticipantCode } from "
 import { orderedQuestions, findQuestion } from "@/lib/testForms";
 import { QuizRunner } from "@/components/ui/QuizRunner";
 import { StageScreen } from "@/components/ui/StageScreen";
+import { TapWord } from "@/components/ui/TapWord";
 import { LikertButtons } from "@/components/ui/LikertButtons";
 import { getScenarioById } from "@/lib/scenarios";
 import { computeProfile, diagnosePlayerType, PLAYER_TYPES, type PlayerTypeId } from "@/lib/playerType";
@@ -99,7 +100,7 @@ export default function ResultClient() {
         }}
       >
         <p>ゲームで学んだことを、はじめて見る場面で試してみよう。</p>
-        <p>事前テストと同じように、<b>詐欺</b> か <b>正常</b> かを選び、自信の度合いをタップしてください（全{postQuestions.length}問）。</p>
+        <p>事前テストと同じように、<b>詐欺</b> か <b>正常</b> かを選び、自信の度合いを<TapWord />してください（全{postQuestions.length}問）。</p>
         <p className="text-amber-300">💡 事前テストと合わせて、答え合わせはこのあと結果発表で！</p>
       </StageScreen>
     );

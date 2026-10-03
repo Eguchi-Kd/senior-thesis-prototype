@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useGameStore } from "@/store/gameStore";
 import { QuizRunner } from "@/components/ui/QuizRunner";
 import { StageScreen } from "@/components/ui/StageScreen";
+import { TapWord } from "@/components/ui/TapWord";
 import { orderedQuestions } from "@/lib/testForms";
 import { saveSnapshot } from "@/lib/logger";
 import { resumePath } from "@/lib/progress";
@@ -53,7 +54,7 @@ export default function PretestClient() {
         }}
       >
         <p>ゲームの前に、今の実力をチェックします。</p>
-        <p>届いたメッセージが <b>詐欺</b> か <b>正常</b> かを選び、どのくらい自信があるかをタップしてください（全{questions.length}問・約2分）。</p>
+        <p>届いたメッセージが <b>詐欺</b> か <b>正常</b> かを選び、どのくらい自信があるかを<TapWord />してください（全{questions.length}問・約2分）。</p>
         <p className="text-amber-300">💡 答え合わせは最後にまとめて発表！ お楽しみに。</p>
       </StageScreen>
     );

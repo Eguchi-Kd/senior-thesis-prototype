@@ -51,8 +51,9 @@ function Badge({ dark }: { dark?: boolean }) {
 }
 
 // 枠の中でスクロールするパネル。中身があふれていて最下部まで見ていない間だけ、下端に合図を出す
-export const ScrollPanel = forwardRef<HTMLDivElement, { className?: string; children: ReactNode; fade?: string }>(
-  function ScrollPanel({ className = "", children, fade = "from-white" }, forwarded) {
+// hint=false：合図を出さない（スクロール自体はできる。ゲームの2問目以降など、操作に慣れた後）
+export const ScrollPanel = forwardRef<HTMLDivElement, { className?: string; children: ReactNode; fade?: string; hint?: boolean }>(
+  function ScrollPanel({ className = "", children, fade = "from-white", hint = true }, forwarded) {
     const inner = useRef<HTMLDivElement | null>(null);
     const getEl = useCallback(() => inner.current, []);
     const more = useOverflow(getEl, "element");
@@ -67,6 +68,7 @@ export const ScrollPanel = forwardRef<HTMLDivElement, { className?: string; chil
       >
         {children}
         {/* 見えている範囲の下端に張り付く合図（操作の邪魔をしない） */}
+        {hint && (
         <div
           aria-hidden
           className={`sticky bottom-0 -mt-14 flex h-14 items-end justify-center bg-gradient-to-t ${fade} to-transparent pb-1 pointer-events-none transition-opacity ${
@@ -75,6 +77,7 @@ export const ScrollPanel = forwardRef<HTMLDivElement, { className?: string; chil
         >
           <Badge />
         </div>
+        )}
       </div>
     );
   },

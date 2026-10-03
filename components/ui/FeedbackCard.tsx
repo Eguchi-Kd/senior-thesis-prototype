@@ -16,9 +16,10 @@ interface Props {
   isLast: boolean;
   nextNumber: number; // 次の問題の番号（ボタンに「第n問へ進む」と出す）
   onNext: () => void;
+  scrollHint?: boolean; // 「下にスクロール」の合図を出すか（第1問だけ）
 }
 
-export function FeedbackCard({ correct, title, explanation, learningPoint, keyPoints, cardEmoji, newCard, isLast, nextNumber, onNext }: Props) {
+export function FeedbackCard({ correct, title, explanation, learningPoint, keyPoints, cardEmoji, newCard, isLast, nextNumber, onNext, scrollHint = true }: Props) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -31,7 +32,7 @@ export function FeedbackCard({ correct, title, explanation, learningPoint, keyPo
         transition={{ type: "spring", stiffness: 260, damping: 22 }}
         className="w-full max-w-md"
       >
-        <ScrollPanel className="bg-white rounded-2xl p-6 max-h-[90dvh]">
+        <ScrollPanel hint={scrollHint} className="bg-white rounded-2xl p-6 max-h-[90dvh]">
         {/* 正誤アイコン：正解はポップ、不正解は横揺れ */}
         <motion.div
           className="text-center text-5xl mb-3"

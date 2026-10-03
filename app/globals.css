@@ -10,6 +10,17 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  /* 練習「見回す」の手の合図：左右に往復（なぞる向きを示す） */
+  --animate-sway: sway 1.2s ease-in-out infinite;
+  @keyframes sway {
+    0%,
+    100% {
+      transform: translateX(-28px);
+    }
+    50% {
+      transform: translateX(28px);
+    }
+  }
 }
 
 @media (prefers-color-scheme: dark) {

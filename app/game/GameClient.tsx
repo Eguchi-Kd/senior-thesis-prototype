@@ -1,7 +1,8 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Room } from "@/components/game/Room";
 import { FPSControls } from "@/components/game/FPSControls";
@@ -12,6 +13,7 @@ import { StageScreen } from "@/components/ui/StageScreen";
 import { OrientationButton } from "@/components/ui/OrientationButton";
 import { ScrollPanel } from "@/components/ui/ScrollHint";
 import { cycleSensitivity, getSensitivity, requestRecenter, SENSITIVITY_LABEL, type LookSensitivity } from "@/lib/lookControl";
+import { useDevice } from "@/lib/device";
 import { useGameStore, type Decision } from "@/store/gameStore";
 import { getScenarioById } from "@/lib/scenarios";
 import { practiceScenario } from "@/scenarios/practice";
@@ -66,16 +68,33 @@ function GameOutro({ total, freePlay, onNext }: { total: number; freePlay: boole
     </StageScreen>
   );
 }
-// 操作練習の段階（1手順＝1動作。できたら自動で次へ）
+// 操作練習の段階（1手順＝1動作。できたら自動で次へ）。文言はスマホ（touch）と PC（pc）で出し分ける
 const PRACTICE_STEPS = [
-  { key: "look", title: "見回す", text: "画面の右側を指でなぞって、部屋を見回してみよう（PC はドラッグ）" },
-  { key: "recenter", title: "正面に戻す", text: "右下の「🎯 正面」を押すと、机の方向に向き直れます" },
-  { key: "move", title: "歩く", text: "左下のスティックを上に倒して、前へ進んでみよう（PC は W キー）" },
-  { key: "phone", title: "スマホの通知を見る", text: "「🔍 スマートフォン」を押して、届いた通知を見てみよう。見たら「確認した」で閉じます" },
-  { key: "room", title: "部屋の情報を見る", text: "カレンダー・メモ・ポスターのどれかを🔍で調べてみよう" },
-  { key: "hint", title: "ヒントを見る", text: "迷ったら「💡 ヒント」。押してみよう（もう一度押すか × で閉じます）" },
-  { key: "judge", title: "判定する", text: "集めた情報とスマホの通知を見比べて、食い違い（矛盾）がないか考えたら「⚖️ 判定する」" },
-  { key: "decide", title: "答えて決定", text: "詐欺あり／なしと自信の度合いを選んで「決定する」。練習なのでどちらを選んでも大丈夫" },
+  {
+    key: "look", title: "見回す",
+    touch: "画面を指でなぞって、部屋を見回してみよう",
+    pc: "画面をマウスでドラッグして、部屋を見回してみよう",
+    sub: "見回す速さは右の「感度」ボタンで 低・中・高 に変えられます",
+  },
+  { key: "recenter", title: "正面に戻す", touch: "右下の「🎯 正面」を押すと、机の方向に向き直れます", pc: "右下の「🎯 正面」をクリックすると、机の方向に向き直れます" },
+  { key: "move", title: "歩く", touch: "左下のスティックを上に倒して、前へ進んでみよう", pc: "W キー（または ↑）で前へ進んでみよう。A・S・D で左・後ろ・右に動けます" },
+  {
+    key: "phone", title: "スマホの通知を見る",
+    touch: "「🔍 スマートフォン」を押して、届いた通知を見てみよう。見たら「確認した」で閉じます",
+    pc: "「🔍 スマートフォン」をクリックして、届いた通知を見てみよう。見たら「確認した」で閉じます",
+  },
+  { key: "room", title: "部屋の情報を見る", touch: "カレンダー・メモ・ポスターのどれかを🔍で調べてみよう", pc: "カレンダー・メモ・ポスターのどれかの🔍をクリックして調べてみよう" },
+  { key: "hint", title: "ヒントを見る", touch: "迷ったら「💡 ヒント」。押してみよう（もう一度押すか × で閉じます）", pc: "迷ったら「💡 ヒント」。クリックしてみよう（もう一度押すか × で閉じます）" },
+  {
+    key: "judge", title: "判定する",
+    touch: "集めた情報とスマホの通知を見比べて、食い違い（矛盾）がないか考えたら「⚖️ 判定する」",
+    pc: "集めた情報とスマホの通知を見比べて、食い違い（矛盾）がないか考えたら「⚖️ 判定する」",
+  },
+  {
+    key: "decide", title: "答えて決定",
+    touch: "詐欺あり／なしと自信の度合いを選んで「決定する」。練習なのでどちらを選んでも大丈夫",
+    pc: "詐欺あり／なしと自信の度合いを選んで「決定する」。練習なのでどちらを選んでも大丈夫",
+  },
 ] as const;
 type PracticeKey = (typeof PRACTICE_STEPS)[number]["key"];
 const ROOM_IDS = ["calendar", "receipt", "poster", "id_card"];
@@ -126,6 +145,20 @@ export default function GameClient() {
   const [banner, setBanner] = useState<number | null>(null); // 問題開始の表示（第n問）
   const [practiceDoneModal, setPracticeDoneModal] = useState(false);
   const [showHintCard, setShowHintCard] = useState(false);
+  const device = useDevice();
+  const isPC = device === "pc";
+  // 練習：段階をクリアしたときに画面中央へ出す表示（約1.4秒。操作は止めない）
+  const [stepToast, setStepToast] = useState<{ n: number; title: string; next: string } | null>(null);
+  const prevStep = useRef(0);
+  useEffect(() => {
+    const done = prevStep.current;
+    prevStep.current = practiceStep;
+    // 最後の「答えて決定」は練習完了の画面が代わりになるので出さない
+    if (practiceStep <= done || practiceStep >= PRACTICE_STEPS.length) return;
+    setStepToast({ n: done + 1, title: PRACTICE_STEPS[done].title, next: PRACTICE_STEPS[practiceStep].title });
+    const t = setTimeout(() => setStepToast(null), 1400);
+    return () => clearTimeout(t);
+  }, [practiceStep]);
 
   const inPractice = stage === "practice";
   const scenario = inPractice ? practiceScenario : getScenarioById(scenarioOrder[currentIndex]);
@@ -283,7 +316,13 @@ export default function GameClient() {
         ) : (
           <p>全{scenarioOrder.length}問。まずは1分ほど、ゲームの流れを練習します。</p>
         )}
-        <p className="text-gray-400 text-xs">📱 スマホは横向きでプレイしてください。</p>
+        <p className="text-gray-400 text-sm">
+          {isPC
+            ? "🖱️ マウスとキーボードで操作します。"
+            : device === "ios"
+              ? "📱 画面の回転ロックを解除して、スマホを横向きにしてプレイしてください。"
+              : "📱 スマホは横向きでプレイしてください（次の画面のボタンでも横向きにできます）。"}
+        </p>
       </StageScreen>
     );
   }
@@ -298,7 +337,9 @@ export default function GameClient() {
   const visibleIds = !inPractice ? undefined : step === "phone" ? ["smartphone"] : step === "room" ? ROOM_IDS : [];
   const showJudgeButton = inPractice ? step === "judge" : phase === "exploring" && currentInspected.length >= 1;
   const showHintButton = inPractice ? step === "hint" || step === "judge" : phase === "exploring";
-  const showLookTools = !inPractice || practiceStep >= 1; // 正面・感度ボタン
+  const showRecenter = !inPractice || practiceStep >= 1; // 🎯正面は「正面に戻す」の段階から
+  // 「下にスクロール」の合図と画面下の操作説明は、練習と第1問だけ（操作に慣れた2問目以降は出さない）
+  const firstRound = inPractice || currentIndex === 0;
   // 本編の第1問だけ、進め方の手順を小さく表示（どの物を見るべきかは示さない）
   const showGuide = !inPractice && currentIndex === 0 && !lastResult;
   const sawPhone = currentInspected.includes("smartphone");
@@ -361,16 +402,39 @@ export default function GameClient() {
           <p className="text-xs text-yellow-300 font-bold text-center">
             🎮 練習 {practiceStep + 1} / {PRACTICE_STEPS.length}：{PRACTICE_STEPS[practiceStep].title}（記録されません）
           </p>
-          <p className="text-base text-center leading-snug mt-0.5">{PRACTICE_STEPS[practiceStep].text}</p>
+          <p className="text-base text-center leading-snug mt-0.5">{PRACTICE_STEPS[practiceStep][isPC ? "pc" : "touch"]}</p>
+          {"sub" in PRACTICE_STEPS[practiceStep] && (
+            <p className="text-sm text-center text-white/80 leading-snug mt-1">{(PRACTICE_STEPS[practiceStep] as { sub: string }).sub}</p>
+          )}
         </div>
       )}
       {/* 練習「見回す」：右側をなぞる合図 */}
       {inPractice && step === "look" && controlsEnabled && (
         <div className="absolute right-[12%] top-1/2 -translate-y-1/2 z-20 pointer-events-none text-center text-white">
-          <div className="text-5xl animate-bounce">👆</div>
-          <p className="text-sm font-bold bg-black/60 rounded-full px-3 py-1 mt-1">← なぞる →</p>
+          <div className="text-5xl animate-sway">{isPC ? "🖱️" : "👆"}</div>
+          <p className="text-sm font-bold bg-black/60 rounded-full px-3 py-1 mt-1">{isPC ? "← ドラッグ →" : "← なぞる →"}</p>
         </div>
       )}
+
+      {/* 練習：段階をクリアしたら画面中央に表示（判定画面の上にも出る・操作は止めない） */}
+      <AnimatePresence>
+        {inPractice && stepToast && (
+          <motion.div
+            key={stepToast.n}
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 380, damping: 22 }}
+            className="absolute inset-0 z-[65] flex items-center justify-center pointer-events-none"
+          >
+            <div className="bg-green-600/95 text-white rounded-2xl px-8 py-4 text-center shadow-2xl">
+              <p className="text-2xl font-black">✅ できた！</p>
+              <p className="text-base font-bold mt-1">練習 {stepToast.n} / {PRACTICE_STEPS.length}：{stepToast.title}</p>
+              <p className="text-sm text-white/85 mt-1">次：{stepToast.next}</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 本編の第1問：進め方の手順（済んだら✓。強制はしない）。進捗バーの右隣に置く（右上はポスターのラベルが出る位置なので避ける） */}
       {showGuide && controlsEnabled && (
@@ -389,11 +453,14 @@ export default function GameClient() {
         </div>
       )}
 
-      {/* 探索ガイド（本編でまだ何も調べていないとき） */}
-      {!inPractice && phase === "exploring" && currentInspected.length === 0 && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 text-white/80 text-sm text-center pointer-events-none px-4">
-          左のスティックで移動 ・ 画面をなぞって見回す<br />
-          （PC: WASDで移動・ドラッグで視点） 近づいて🔍をタップで調べる
+      {/* 操作説明（練習中と、第1問でまだ何も調べていないとき。2問目以降は出さない） */}
+      {controlsEnabled && (inPractice || (currentIndex === 0 && phase === "exploring" && currentInspected.length === 0)) && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 text-white/80 text-sm text-center pointer-events-none px-4 [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
+          {isPC ? (
+            <>WASD・矢印キーで移動 ・ ドラッグで見回す<br />🔍 をクリックで調べる</>
+          ) : (
+            <>左のスティックで移動 ・ 画面をなぞって見回す<br />近づいて 🔍 をタップで調べる</>
+          )}
         </div>
       )}
 
@@ -431,7 +498,11 @@ export default function GameClient() {
               <span className="font-bold">💡 ヒント：</span>
               {scenario.hint}
             </p>
-            <button onClick={() => setShowHintCard(false)} className="text-amber-900 text-lg leading-none px-1" aria-label="ヒントを閉じる">
+            <button
+              onClick={() => setShowHintCard(false)}
+              className="shrink-0 -mt-1 -mr-1 w-11 h-11 rounded-full bg-amber-200 active:bg-amber-300 text-amber-900 text-2xl font-black leading-none flex items-center justify-center"
+              aria-label="ヒントを閉じる"
+            >
               ×
             </button>
           </div>
@@ -445,8 +516,9 @@ export default function GameClient() {
         style={STICK_STYLE}
       />
       {/* 右側：正面に戻す・視点の感度（なぞって見回す操作の補助） */}
-      {controlsEnabled && showLookTools && (
+      {controlsEnabled && (
         <div className="absolute z-30 flex flex-col items-center gap-2" style={LOOK_TOOLS_STYLE}>
+          {showRecenter && (
           <button
             onClick={requestRecenter}
             className={`w-16 h-16 rounded-full bg-black/60 border border-white/40 text-white text-sm font-bold leading-tight shadow-lg pointer-events-auto ${
@@ -456,9 +528,12 @@ export default function GameClient() {
           >
             🎯<br />正面
           </button>
+          )}
           <button
             onClick={() => setSens(cycleSensitivity())}
-            className="px-3 py-1.5 rounded-full bg-black/60 border border-white/30 text-white text-xs font-bold pointer-events-auto"
+            className={`px-3 py-1.5 rounded-full bg-black/60 border border-white/30 text-white text-xs font-bold pointer-events-auto ${
+              inPractice && step === "look" ? "ring-2 ring-yellow-300/80" : ""
+            }`}
           >
             感度：{SENSITIVITY_LABEL[sens]}
           </button>
@@ -468,7 +543,7 @@ export default function GameClient() {
       {/* 調査パネル */}
       {inspectedObj && (
         <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-40 p-4">
-          <ScrollPanel className="bg-white rounded-2xl p-5 w-full max-w-sm max-h-[90dvh]">
+          <ScrollPanel hint={firstRound} className="bg-white rounded-2xl p-5 w-full max-w-sm max-h-[90dvh]">
             <h3 className="font-bold text-xl mb-3">
               {inspectedObj.label}
               {typeof inspectedObj.content !== "string" && (
@@ -551,6 +626,7 @@ export default function GameClient() {
           onBack={backToExplore}
           hint={scenario.hint}
           hintUsed={inPractice ? practiceStep > 5 : hintUsed}
+          scrollHint={firstRound}
         />
       )}
 
@@ -567,6 +643,7 @@ export default function GameClient() {
           isLast={isLast}
           nextNumber={currentIndex + 2}
           onNext={handleNext}
+          scrollHint={firstRound}
         />
       )}
     </div>

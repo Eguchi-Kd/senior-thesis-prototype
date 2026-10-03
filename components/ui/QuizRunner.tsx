@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { TapWord } from "./TapWord";
 import type { TestQuestion } from "@/lib/transferTest";
 import type { TestForm } from "@/lib/testForms";
 import type { Difficulty } from "@/scenarios/types";
@@ -180,7 +181,7 @@ export function QuizRunner({
             {/* 答えを選ぶと確信度が出る。確信度のタップで回答確定 */}
             <div className={`bg-gray-900 rounded-xl p-3 transition-opacity ${answer ? "opacity-100" : "opacity-30 pointer-events-none"}`}>
               <p className="text-gray-300 text-sm mb-2 text-center">
-                {answer ? "どのくらい自信がある？（タップで次へ）" : "まず答えを選んでください"}
+                {answer ? <>どのくらい自信がある？（<TapWord />で次へ）</> : "まず答えを選んでください"}
               </p>
               <div className="grid grid-cols-5 gap-1.5">
                 {CONFIDENCE.map((label, i) => (

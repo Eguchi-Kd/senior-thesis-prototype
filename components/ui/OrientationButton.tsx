@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { detectDevice } from "@/lib/device";
 
 type Lockable = ScreenOrientation & { lock?: (o: "landscape" | "portrait") => Promise<void>; unlock?: () => void };
 
@@ -8,10 +9,8 @@ type Lockable = ScreenOrientation & { lock?: (o: "landscape" | "portrait") => Pr
 // iPhone・iPad の Safari はブラウザが向きの固定に対応していないので、ボタンを出さず案内文にする
 function canLockOrientation(): boolean {
   if (typeof window === "undefined") return false;
-  const ua = navigator.userAgent;
-  const apple = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
   const o = screen.orientation as Lockable | undefined;
-  return !apple && typeof document.documentElement.requestFullscreen === "function" && typeof o?.lock === "function";
+  return detectDevice() !== "ios" && typeof document.documentElement.requestFullscreen === "function" && typeof o?.lock === "function";
 }
 
 async function lockTo(dir: "landscape" | "portrait"): Promise<boolean> {

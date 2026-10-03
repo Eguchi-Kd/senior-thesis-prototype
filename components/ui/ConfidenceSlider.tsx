@@ -14,6 +14,7 @@ interface Props {
   onBack: () => void; // 探索に戻って調べ直す（選んだ答え・確信度・ヒントは保持）
   hint: string;
   hintUsed: boolean; // 探索画面のヒントボタンで見たヒントを、判定画面でも読み返せるよう表示する
+  scrollHint?: boolean; // 「下にスクロール」の合図を出すか（練習と第1問だけ）
 }
 
 const LABELS = ["全くわからない", "あまり自信なし", "やや自信あり", "かなり自信あり", "完全に自信あり"];
@@ -28,10 +29,11 @@ export function ConfidenceSlider({
   onBack,
   hint,
   hintUsed,
+  scrollHint = true,
 }: Props) {
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <ScrollPanel className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90dvh]">
+      <ScrollPanel hint={scrollHint} className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90dvh]">
         <h2 className="text-lg font-bold text-center mb-1">判定してください</h2>
         <p className="text-base text-gray-600 text-center mb-4">スマホに届いた通知の中に、詐欺はありましたか？</p>
 
