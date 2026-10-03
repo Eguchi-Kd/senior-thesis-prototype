@@ -7,6 +7,7 @@ import * as THREE from "three";
 import type { Scenario } from "@/scenarios/types";
 import { asset } from "@/lib/basePath";
 import { resolveWindowCity } from "@/lib/windowView";
+import { justSwiped } from "@/lib/lookControl";
 import { ModelErrorBoundary } from "./ModelErrorBoundary";
 import { WindowCity } from "./WindowCity";
 
@@ -48,10 +49,12 @@ function InteractableObject({
   obj,
   onInspect,
   rotation,
+  active = true,
 }: {
   obj: { id: string; label: string; position: [number, number, number] };
   onInspect: (id: string) => void;
   rotation?: [number, number, number];
+  active?: boolean; // false：ラベルを隠し、タップしても調べない（練習で今の段階以外の物）
 }) {
   const bodyRef = useRef<THREE.Mesh>(null);
   const dotRef  = useRef<THREE.Mesh>(null);
@@ -81,7 +84,7 @@ function InteractableObject({
   return (
     <group position={[px, py, pz]}>
       {/* 大きめの透明な当たり判定（指でのタップを容易にする。不可視でもレイキャスト対象） */}
-      <mesh onClick={() => onInspect(obj.id)}>
+      <mesh onClick={() => { if (active && !justSwiped()) onInspect(obj.id); }}>
         <boxGeometry args={[0.6, Math.max(0.6, shape.h + 0.3), 0.6]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
@@ -184,15 +187,17 @@ function InteractableObject({
       </mesh>
 
       {/* フローティングラベル：常時表示の大きなタップ対象（見つけやすく・押しやすく） */}
-      <Html position={[0, shape.h / 2 + 0.3, 0]} center zIndexRange={[16, 0]} style={{ pointerEvents: "auto" }}>
-        <button
-          ref={labelRef}
-          onClick={(e) => { e.stopPropagation(); onInspect(obj.id); }}
-          className="whitespace-nowrap px-3 py-1.5 rounded-full bg-black/70 text-white text-xs font-bold border border-white/40 shadow-lg backdrop-blur-sm transition-transform"
-        >
-          🔍 {obj.label}
-        </button>
-      </Html>
+      {active && (
+        <Html position={[0, shape.h / 2 + 0.3, 0]} center zIndexRange={[16, 0]} style={{ pointerEvents: "auto" }}>
+          <button
+            ref={labelRef}
+            onClick={(e) => { e.stopPropagation(); onInspect(obj.id); }}
+            className="whitespace-nowrap px-3.5 py-2 rounded-full bg-black/70 text-white text-sm font-bold border border-white/40 shadow-lg backdrop-blur-sm transition-transform"
+          >
+            🔍 {obj.label}
+          </button>
+        </Html>
+      )}
     </group>
   );
 }
@@ -287,7 +292,8 @@ function CityFallback() {
 }
 
 // ─── メインルーム（在宅ワークのワンルーム／温かい生活感） ─────────────
-export function Room({ onInspect, scenario }: { onInspect: (id: string) => void; scenario: Scenario }) {
+// visibleIds：指定したときは、その物だけラベルを出して調べられるようにする（操作練習の段階用）
+export function Room({ onInspect, scenario, visibleIds }: { onInspect: (id: string) => void; scenario: Scenario; visibleIds?: string[] }) {
   const HX = ROOM_W / 2; // 1.8
   const HZ = ROOM_D / 2; // 2.7
   // 窓の外を都市風景（3D）にするか（テストモードで ?city=1 のときだけ。lib/windowView.ts）
@@ -546,6 +552,7 @@ export function Room({ onInspect, scenario }: { onInspect: (id: string) => void;
           obj={{ ...obj, position: OBJECT_ANCHORS[obj.id] ?? obj.position ?? [0, 1, 0] }}
           onInspect={onInspect}
           rotation={OBJECT_ROTATIONS[obj.id]}
+          active={!visibleIds || visibleIds.includes(obj.id)}
         />
       ))}
     </group>

@@ -37,7 +37,7 @@ export function StageScreen({
           {emoji}
         </motion.div>
         <h1 className="text-2xl font-black mb-4">{title}</h1>
-        <div className="bg-gray-800/80 rounded-2xl p-5 mb-8 text-sm text-gray-200 leading-relaxed text-left space-y-2">
+        <div className="bg-gray-800/80 rounded-2xl p-5 mb-8 text-base text-gray-200 leading-relaxed text-left space-y-2">
           {children}
         </div>
         <motion.button

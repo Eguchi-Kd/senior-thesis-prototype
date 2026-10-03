@@ -24,7 +24,7 @@ export function LikertButtons({
             key={n}
             type="button"
             onClick={() => onChange(n)}
-            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
+            className={`flex-1 py-2 rounded-lg text-base font-bold transition-all ${
               value === n ? "bg-blue-600 text-white scale-105" : idle
             }`}
           >
@@ -33,7 +33,7 @@ export function LikertButtons({
         ))}
       </div>
       {(minLabel || maxLabel) && (
-        <div className={`flex justify-between text-xs mt-1 ${sub}`}>
+        <div className={`flex justify-between text-sm mt-1 ${sub}`}>
           <span>{minLabel}</span>
           <span>{maxLabel}</span>
         </div>

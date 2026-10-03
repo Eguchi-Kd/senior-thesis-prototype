@@ -1,5 +1,6 @@
 "use client";
 
+import { ScrollPanel } from "./ScrollHint";
 import { motion } from "framer-motion";
 import { LearningCard } from "./LearningCard";
 import type { Scenario } from "@/scenarios/types";
@@ -28,8 +29,9 @@ export function FeedbackCard({ correct, title, explanation, learningPoint, keyPo
         initial={{ y: 40, scale: 0.96 }}
         animate={{ y: 0, scale: 1 }}
         transition={{ type: "spring", stiffness: 260, damping: 22 }}
-        className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-md"
       >
+        <ScrollPanel className="bg-white rounded-2xl p-6 max-h-[90dvh]">
         {/* 正誤アイコン：正解はポップ、不正解は横揺れ */}
         <motion.div
           className="text-center text-5xl mb-3"
@@ -54,19 +56,19 @@ export function FeedbackCard({ correct, title, explanation, learningPoint, keyPo
               <div key={k.label} className="flex gap-2 bg-gray-50 rounded-xl p-3">
                 <span className="text-lg leading-none">{k.icon}</span>
                 <div>
-                  <p className="text-[11px] font-bold text-gray-500">{k.label}</p>
-                  <p className="text-sm text-gray-800 leading-relaxed">{k.text}</p>
+                  <p className="text-[13px] font-bold text-gray-500">{k.label}</p>
+                  <p className="text-base text-gray-800 leading-relaxed">{k.text}</p>
                 </div>
               </div>
             ))}
             <details className="bg-gray-50 rounded-xl p-3">
-              <summary className="cursor-pointer text-sm font-bold text-gray-600">詳しい解説を読む</summary>
-              <p className="text-sm text-gray-700 leading-relaxed mt-2">{explanation}</p>
+              <summary className="cursor-pointer text-base font-bold text-gray-600">詳しい解説を読む</summary>
+              <p className="text-base text-gray-700 leading-relaxed mt-2">{explanation}</p>
             </details>
           </div>
         ) : (
           <div className="bg-gray-50 rounded-xl p-4 mb-4">
-            <p className="text-sm text-gray-700 leading-relaxed">{explanation}</p>
+            <p className="text-base text-gray-700 leading-relaxed">{explanation}</p>
           </div>
         )}
 
@@ -84,8 +86,8 @@ export function FeedbackCard({ correct, title, explanation, learningPoint, keyPo
           </div>
         ) : (
           <div className="bg-blue-50 rounded-xl p-4 mb-6 border-l-4 border-blue-400">
-            <p className="text-xs font-bold text-blue-700 mb-1">📚 学習ポイント</p>
-            <p className="text-sm text-blue-800">{learningPoint}</p>
+            <p className="text-sm font-bold text-blue-700 mb-1">📚 学習ポイント</p>
+            <p className="text-base text-blue-800">{learningPoint}</p>
           </div>
         )}
 
@@ -95,6 +97,7 @@ export function FeedbackCard({ correct, title, explanation, learningPoint, keyPo
         >
           {isLast ? "本編を終える →" : `第${nextNumber}問へ進む →`}
         </button>
+        </ScrollPanel>
       </motion.div>
     </motion.div>
   );

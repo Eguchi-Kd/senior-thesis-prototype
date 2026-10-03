@@ -27,6 +27,13 @@ body {
 /* 全画面が濃色UIのため、OSのライト/ダーク設定に関係なく背景を濃色に固定（スクロール時に白が見えないように） */
 html {
   background: #030712;
+  /* 下に引っぱってページを更新してしまう誤操作を防ぐ（Chrome は html 側の指定を見る） */
+  overscroll-behavior-y: none;
+}
+
+/* スクロールする枠の中で端まで来ても、ページ全体の引っぱり更新につなげない */
+.scroll-contain {
+  overscroll-behavior: contain;
 }
 
 body {

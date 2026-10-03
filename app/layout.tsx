@@ -1,3 +1,4 @@
+import { PageScrollHint } from "@/components/ui/ScrollHint";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -42,6 +43,8 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <SessionTracker />
         {children}
+        {/* 縦に長い画面で、下に続きがあることを知らせる */}
+        <PageScrollHint />
       </body>
     </html>
   );

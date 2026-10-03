@@ -1,6 +1,7 @@
 "use client";
 
 import { LikertButtons } from "./LikertButtons";
+import { ScrollPanel } from "./ScrollHint";
 
 type Decision = "report" | "ignore";
 
@@ -30,13 +31,13 @@ export function ConfidenceSlider({
 }: Props) {
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90dvh] overflow-y-auto">
+      <ScrollPanel className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90dvh]">
         <h2 className="text-lg font-bold text-center mb-1">判定してください</h2>
-        <p className="text-sm text-gray-600 text-center mb-4">スマホに届いた通知の中に、詐欺はありましたか？</p>
+        <p className="text-base text-gray-600 text-center mb-4">スマホに届いた通知の中に、詐欺はありましたか？</p>
 
         {/* 探索中に見たヒントの読み返し（ヒントの入口は探索画面のボタンだけ） */}
         {hintUsed && (
-          <div className="w-full bg-amber-100 text-amber-900 text-sm rounded-xl p-3 text-center mb-4">
+          <div className="w-full bg-amber-100 text-amber-900 text-base rounded-xl p-3 text-center mb-4">
             <p className="font-bold mb-1">💡 ヒント</p>
             <p>{hint}</p>
           </div>
@@ -45,7 +46,7 @@ export function ConfidenceSlider({
         <div className="flex gap-3 mb-5">
           <button
             onClick={() => onDecision("report")}
-            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${
+            className={`flex-1 py-3 rounded-xl font-bold text-base transition-all ${
               decision === "report" ? "bg-red-500 text-white scale-105" : "bg-red-100 text-red-700"
             }`}
           >
@@ -53,7 +54,7 @@ export function ConfidenceSlider({
           </button>
           <button
             onClick={() => onDecision("ignore")}
-            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${
+            className={`flex-1 py-3 rounded-xl font-bold text-base transition-all ${
               decision === "ignore" ? "bg-green-500 text-white scale-105" : "bg-green-100 text-green-700"
             }`}
           >
@@ -62,14 +63,14 @@ export function ConfidenceSlider({
         </div>
 
         <div className="mb-5">
-          <p className="text-sm text-gray-600 mb-2 text-center">
+          <p className="text-base text-gray-600 mb-2 text-center">
             確信度：{confidence != null ? LABELS[confidence - 1] : "選んでください"}
           </p>
           <LikertButtons value={confidence} onChange={onConfidence} minLabel="全くわからない" maxLabel="完全に自信あり" />
         </div>
 
         <div className="flex gap-3">
-          <button onClick={onBack} className="flex-1 py-3 bg-gray-200 text-gray-800 rounded-xl font-bold text-sm">
+          <button onClick={onBack} className="flex-1 py-3 bg-gray-200 text-gray-800 rounded-xl font-bold text-base">
             🔍 もう一度調べる
           </button>
           <button
@@ -80,7 +81,7 @@ export function ConfidenceSlider({
             決定する
           </button>
         </div>
-      </div>
+      </ScrollPanel>
     </div>
   );
 }

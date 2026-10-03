@@ -24,16 +24,16 @@ function ChipGroup({
 }) {
   return (
     <div className="mb-5">
-      <p className="text-sm text-gray-300 mb-2 font-bold">
+      <p className="text-base text-gray-300 mb-2 font-bold">
         {label}
-        {optional && <span className="text-gray-500 font-normal text-xs">（任意）</span>}
+        {optional && <span className="text-gray-500 font-normal text-sm">（任意）</span>}
       </p>
       <div className="flex flex-wrap gap-2">
         {options.map((opt) => (
           <button
             key={opt}
             onClick={() => onChange(opt)}
-            className={`px-3 py-2 rounded-xl text-sm transition-all ${
+            className={`px-3 py-2 rounded-xl text-base transition-all ${
               value === opt ? "bg-blue-600 text-white scale-105" : "bg-gray-800 text-gray-300"
             }`}
           >
@@ -48,7 +48,7 @@ function ChipGroup({
 function Scale({ label, value, onChange }: { label: string; value: number | null; onChange: (v: number) => void }) {
   return (
     <div className="mb-5">
-      <p className="text-sm text-gray-300 mb-2 font-bold">{label}</p>
+      <p className="text-base text-gray-300 mb-2 font-bold">{label}</p>
       <LikertButtons value={value} onChange={onChange} minLabel="1 低い" maxLabel="5 高い" dark />
     </div>
   );
@@ -91,7 +91,7 @@ export default function IntakePage() {
     <div className="min-h-dvh bg-gray-950 flex flex-col items-center px-6 py-8 text-white">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
         <h1 className="text-2xl font-black mb-1 text-center">あなたについて</h1>
-        <p className="text-gray-400 text-xs text-center mb-6">分析に使います（匿名）</p>
+        <p className="text-gray-400 text-sm text-center mb-6">分析に使います（匿名）</p>
 
         <ChipGroup label="年齢層" options={["13-15", "16-18", "19-22", "23-29", "30-39", "40以上"]} value={ageGroup} onChange={setAgeGroup} />
         <ChipGroup label="職業・学年" options={["中学生", "高校生", "大学・専門学生", "社会人", "その他"]} value={occupation} onChange={setOccupation} />

@@ -6,7 +6,8 @@
 使い方:
     python select_sample.py <export_フォルダ> [--content-version 2026-10-05] [--staff staff.csv]
 
-    --content-version : 本収集の対象版（指定すると他の版を除外。複数の版が含まれる場合は必須）
+    --content-version : 本収集の対象版（指定すると他の版を除外。複数の版が含まれる場合は必須）。
+                        カンマ区切りで複数指定できる（例 2026-10-10,2026-10-11：問題は同じで操作だけ違う版を合わせる。分析計画 6.）
     --include-test    : テスト実行を除外しない（パイロットの確認用。本実験の分析では使わない）
     --staff           : 担当者記録（参加者コード単位）。列：participantCode, exclude(1/0), reason
                         例）本人初回でないと確認できた、操作を大きく手伝った、途中で交代した 等
@@ -65,7 +66,8 @@ def main():
             errors[sid].append(msg)
     staff = load_staff(a.staff)
 
-    # 異なる版を合算しない（分析計画 6.）。複数の版があるのに対象版の指定がなければ止める
+    # 異なる版を黙って合算しない（分析計画 6.）。複数の版があるのに対象版の指定がなければ止める
+    targets = [v.strip() for v in (a.content_version or "").split(",") if v.strip()]
     versions = sorted({s.get("contentVersion", "") for s in sessions})
     if len(versions) > 1 and not a.content_version:
         sys.exit(f"[ERROR] 複数の版が含まれています {versions}。--content-version で対象版を指定してください")
@@ -90,7 +92,7 @@ def main():
             reasons.append(f"所要時間{MIN_DURATION_SEC // 60}分未満")
         if len([v for v in s.get("contentVersionsSeen", "").split("|") if v]) > 1:
             reasons.append("版の混在")
-        if a.content_version and s.get("contentVersion") != a.content_version:
+        if targets and s.get("contentVersion") not in targets:
             reasons.append(f"対象外の版({s.get('contentVersion')})")
         st = staff.get(s.get("participantCode", "").upper())
         if st and b(st.get("exclude")):

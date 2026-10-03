@@ -9,6 +9,9 @@ import { PostFX } from "@/components/game/PostFX";
 import { ConfidenceSlider } from "@/components/ui/ConfidenceSlider";
 import { FeedbackCard } from "@/components/ui/FeedbackCard";
 import { StageScreen } from "@/components/ui/StageScreen";
+import { OrientationButton } from "@/components/ui/OrientationButton";
+import { ScrollPanel } from "@/components/ui/ScrollHint";
+import { cycleSensitivity, getSensitivity, requestRecenter, SENSITIVITY_LABEL, type LookSensitivity } from "@/lib/lookControl";
 import { useGameStore, type Decision } from "@/store/gameStore";
 import { getScenarioById } from "@/lib/scenarios";
 import { practiceScenario } from "@/scenarios/practice";
@@ -17,6 +20,19 @@ import { resumePath } from "@/lib/progress";
 import { addToCollection, scenarioCardId } from "@/lib/collection";
 
 type Stage = "intro" | "practice" | "main" | "outro";
+
+// 移動スティックの位置：画面下端から高さの約22%（最低80px）＋セーフエリア、左端から少し内側
+const STICK_STYLE = {
+  width: 150,
+  height: 150,
+  left: "calc(max(5vw, 20px) + env(safe-area-inset-left))",
+  bottom: "calc(max(22dvh, 80px) + env(safe-area-inset-bottom))",
+} as const;
+// 右側の補助ボタン（スティックと同じ高さ）
+const LOOK_TOOLS_STYLE = {
+  right: "calc(max(5vw, 20px) + env(safe-area-inset-right))",
+  bottom: "calc(max(22dvh, 80px) + env(safe-area-inset-bottom) + 20px)",
+} as const;
 
 // URL（リンク）か、振込先・電話番号などの「要求」かでラベルを分ける
 const isLink = (v: string) => /^https?:\/\//.test(v);
@@ -40,14 +56,29 @@ function GameOutro({ total, freePlay, onNext }: { total: number; freePlay: boole
     >
       <p>全{total}問、おつかれさまでした！ {freePlay ? "遊んでくれてありがとう！" : "ご協力ありがとうございます。"}</p>
       {!freePlay && <p>最後に、学んだことを確かめる短いテストとアンケートがあります。結果発表はそのあと！</p>}
-      <div className="flex items-center gap-3 bg-amber-500/15 border border-amber-500/40 rounded-xl p-3 mt-2">
-        <span className="text-3xl animate-pulse">📱↻</span>
-        <p className="text-amber-200 font-bold">ここからは、スマホを <span className="text-amber-100">縦向き</span> に戻してください。</p>
+      <div className="bg-amber-500/15 border border-amber-500/40 rounded-xl p-3 mt-2 space-y-2">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl animate-pulse">📱↻</span>
+          <p className="text-amber-200 font-bold">ここからは、スマホを <span className="text-amber-100">縦向き</span> に戻してください。</p>
+        </div>
+        <OrientationButton dir="portrait" />
       </div>
     </StageScreen>
   );
 }
-type PracticeCheck = { move: boolean; look: boolean; phone: boolean; room: boolean; hint: boolean };
+// 操作練習の段階（1手順＝1動作。できたら自動で次へ）
+const PRACTICE_STEPS = [
+  { key: "look", title: "見回す", text: "画面の右側を指でなぞって、部屋を見回してみよう（PC はドラッグ）" },
+  { key: "recenter", title: "正面に戻す", text: "右下の「🎯 正面」を押すと、机の方向に向き直れます" },
+  { key: "move", title: "歩く", text: "左下のスティックを上に倒して、前へ進んでみよう（PC は W キー）" },
+  { key: "phone", title: "スマホの通知を見る", text: "「🔍 スマートフォン」を押して、届いた通知を見てみよう。見たら「確認した」で閉じます" },
+  { key: "room", title: "部屋の情報を見る", text: "カレンダー・メモ・ポスターのどれかを🔍で調べてみよう" },
+  { key: "hint", title: "ヒントを見る", text: "迷ったら「💡 ヒント」。押してみよう（もう一度押すか × で閉じます）" },
+  { key: "judge", title: "判定する", text: "集めた情報とスマホの通知を見比べて、食い違い（矛盾）がないか考えたら「⚖️ 判定する」" },
+  { key: "decide", title: "答えて決定", text: "詐欺あり／なしと自信の度合いを選んで「決定する」。練習なのでどちらを選んでも大丈夫" },
+] as const;
+type PracticeKey = (typeof PRACTICE_STEPS)[number]["key"];
+const ROOM_IDS = ["calendar", "receipt", "poster", "id_card"];
 
 export default function GameClient() {
   const router = useRouter();
@@ -91,7 +122,7 @@ export default function GameClient() {
   const [lastResult, setLastResult] = useState<{ correct: boolean; newCard: boolean } | null>(() =>
     phase === "feedback" && logs.length > currentIndex ? { correct: logs[currentIndex].correct, newCard: false } : null,
   );
-  const [practice, setPractice] = useState<PracticeCheck>({ move: false, look: false, phone: false, room: false, hint: false });
+  const [practiceStep, setPracticeStep] = useState(0);
   const [banner, setBanner] = useState<number | null>(null); // 問題開始の表示（第n問）
   const [practiceDoneModal, setPracticeDoneModal] = useState(false);
   const [showHintCard, setShowHintCard] = useState(false);
@@ -113,16 +144,18 @@ export default function GameClient() {
     return () => clearTimeout(t);
   }, [stage, currentIndex, markScenarioStart, markPhase, entry]);
 
-  const onActivity = useCallback((kind: "move" | "look") => {
-    setPractice((p) => (p[kind] ? p : { ...p, [kind]: true }));
+  // 練習：いまの段階の動作が済んだら次の段階へ（先の段階の動作を先にしても進まない）
+  const advance = useCallback((done: PracticeKey) => {
+    setPracticeStep((i) => (PRACTICE_STEPS[i]?.key === done ? i + 1 : i));
   }, []);
+  const onActivity = useCallback((kind: "move" | "look" | "recenter") => advance(kind), [advance]);
+  const [sens, setSens] = useState<LookSensitivity>("mid");
+  useEffect(() => setSens(getSensitivity()), []);
 
   const handleInspect = (id: string) => {
     if (inspectedId || showJudge || lastResult) return;
     if (inPractice) {
-      setInspectedId(id);
-      const key = id === "smartphone" ? "phone" : "room";
-      setPractice((p) => (p[key] ? p : { ...p, [key]: true }));
+      setInspectedId(id); // 練習：閉じた時点で段階を進める
       return;
     }
     // 記録できない状態ではパネルも開かない（開いたのに記録されない、を防ぐ）
@@ -135,8 +168,12 @@ export default function GameClient() {
 
   // 調査パネルを閉じたら探索に戻す（他のオブジェクトも調べられる）
   const handleCloseInspect = () => {
+    if (inPractice) {
+      advance(inspectedId === "smartphone" ? "phone" : "room");
+      setInspectedId(null);
+      return;
+    }
     setInspectedId(null);
-    if (inPractice) return;
     closeInspect();
     setPhase("exploring");
   };
@@ -144,6 +181,7 @@ export default function GameClient() {
   // 関連オブジェクトの数を悟らせないため、確認ダイアログや件数表示は出さない
   const openJudge = () => {
     if (inPractice) {
+      advance("judge");
       setShowJudge(true); // 練習：判定画面の操作を体験（正解なし・記録なし）
       return;
     }
@@ -155,7 +193,7 @@ export default function GameClient() {
   // ヒントの表示（初回だけ記録。判定画面から戻って調べ直している場合は、その時選んでいた答えも記録）
   const openHint = () => {
     if (inPractice) {
-      setPractice((p) => (p.hint ? p : { ...p, hint: true }));
+      advance("hint");
     } else if (!hintUsed) {
       takeHint(draftDecision);
     }
@@ -176,6 +214,7 @@ export default function GameClient() {
       setDraftDecision(null);
       setDraftConfidence(null);
       setShowHintCard(false);
+      advance("decide");
       setPracticeDoneModal(true);
       return;
     }
@@ -254,21 +293,33 @@ export default function GameClient() {
 
   const inspectedObj = scenario.objects.find((o) => o.id === inspectedId);
   const controlsEnabled = !inspectedObj && !showJudge && !lastResult && !practiceDoneModal;
-  const practiceReady = practice.move && practice.look && practice.phone && practice.room && practice.hint;
+  const step = inPractice ? PRACTICE_STEPS[practiceStep]?.key : undefined;
+  // 練習では、いまの段階で使う物のラベルだけを出す（他は隠して迷わないように）
+  const visibleIds = !inPractice ? undefined : step === "phone" ? ["smartphone"] : step === "room" ? ROOM_IDS : [];
+  const showJudgeButton = inPractice ? step === "judge" : phase === "exploring" && currentInspected.length >= 1;
+  const showHintButton = inPractice ? step === "hint" || step === "judge" : phase === "exploring";
+  const showLookTools = !inPractice || practiceStep >= 1; // 正面・感度ボタン
+  // 本編の第1問だけ、進め方の手順を小さく表示（どの物を見るべきかは示さない）
+  const showGuide = !inPractice && currentIndex === 0 && !lastResult;
+  const sawPhone = currentInspected.includes("smartphone");
+  const sawRoom = currentInspected.some((id) => id !== "smartphone");
+  const ring = "ring-4 ring-yellow-300 animate-pulse";
 
   return (
     <div className="w-full h-dvh bg-black relative overflow-hidden">
       {/* 縦持ち時の回転誘導オーバーレイ（横画面でプレイさせる） */}
       <div className="hidden portrait:flex fixed inset-0 z-[60] bg-gray-950 flex-col items-center justify-center text-center px-8">
         <div className="text-6xl mb-4 animate-pulse">📱↻</div>
-        <p className="text-white text-lg font-bold">端末を横向きにしてください</p>
-        <p className="text-gray-400 text-sm mt-2">このゲームは横画面でプレイします</p>
+        <p className="text-white text-xl font-bold">端末を横向きにしてください</p>
+        <p className="text-gray-400 text-base mt-2 mb-4">このゲームは横画面でプレイします</p>
+        <OrientationButton dir="landscape" />
       </div>
 
       <Canvas shadows dpr={[1, 2]} camera={{ fov: 75 }} style={{ width: "100%", height: "100%" }}>
         <Suspense fallback={null}>
-          <Room onInspect={handleInspect} scenario={scenario} />
-          <FPSControls enabled={controlsEnabled} onActivity={inPractice ? onActivity : undefined} />
+          <Room onInspect={handleInspect} scenario={scenario} visibleIds={visibleIds} />
+          {/* 練習→本編、各問の開始で位置と向きを初期位置に戻す */}
+          <FPSControls enabled={controlsEnabled} resetKey={`${stage}-${currentIndex}`} onActivity={inPractice ? onActivity : undefined} />
         </Suspense>
         <PostFX />
       </Canvas>
@@ -277,8 +328,8 @@ export default function GameClient() {
       {!inPractice && (
         <div className="absolute top-4 left-4 w-40 pointer-events-none">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-white/70 text-xs">進捗</span>
-            <span className="text-white/70 text-xs ml-auto">
+            <span className="text-white/80 text-sm">進捗</span>
+            <span className="text-white/80 text-sm ml-auto">
               {currentIndex + 1} / {scenarioOrder.length}
             </span>
           </div>
@@ -288,7 +339,7 @@ export default function GameClient() {
               style={{ width: `${((currentIndex + 1) / scenarioOrder.length) * 100}%` }}
             />
           </div>
-          <p className="text-white/50 text-[11px] mt-1">
+          <p className="text-white/70 text-xs mt-1">
             {scenarioOrder.length - currentIndex > 1 ? `あと${scenarioOrder.length - currentIndex}問でクリア！` : "ラスト1問！"}
           </p>
         </div>
@@ -299,21 +350,35 @@ export default function GameClient() {
         <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
           <div className="bg-black/70 backdrop-blur rounded-2xl px-8 py-4 text-center text-white">
             <p className="text-3xl font-black">第{banner}問 <span className="text-lg font-bold text-white/70">/ 全{scenarioOrder.length}問</span></p>
-            <p className="text-sm text-white/80 mt-1">部屋の情報とスマホを見比べよう</p>
+            <p className="text-base text-white/85 mt-1">部屋の情報とスマホを見比べよう</p>
           </div>
         </div>
       )}
 
-      {/* 操作練習のチェックリスト */}
-      {inPractice && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 bg-black/70 backdrop-blur rounded-2xl px-4 py-2 text-white text-xs pointer-events-none">
-          <p className="font-bold text-center mb-1">🎮 ゲームの流れの練習（記録されません・正解はありません）</p>
-          <div className="flex flex-wrap justify-center gap-x-3 gap-y-0.5">
-            <span className={practice.move && practice.look ? "text-green-400" : ""}>{practice.move && practice.look ? "✅" : "⬜"} ① 移動・見回す（スティック / WASD・ドラッグ）</span>
-            <span className={practice.phone && practice.room ? "text-green-400" : ""}>{practice.phone && practice.room ? "✅" : "⬜"} ② スマホの通知と部屋の情報を、どちらも🔍で調べる（順番は自由）</span>
-            <span className={practice.hint ? "text-green-400" : ""}>{practice.hint ? "✅" : "⬜"} ③ 💡ヒントを押してみる</span>
-            <span>{practiceReady ? "👉" : "⬜"} ④ ⚖️判定して決定する</span>
-          </div>
+      {/* 操作練習：いまの段階の指示だけを表示 */}
+      {inPractice && step && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 w-[min(92vw,34rem)] bg-black/75 backdrop-blur rounded-2xl px-4 py-2.5 text-white pointer-events-none">
+          <p className="text-xs text-yellow-300 font-bold text-center">
+            🎮 練習 {practiceStep + 1} / {PRACTICE_STEPS.length}：{PRACTICE_STEPS[practiceStep].title}（記録されません）
+          </p>
+          <p className="text-base text-center leading-snug mt-0.5">{PRACTICE_STEPS[practiceStep].text}</p>
+        </div>
+      )}
+      {/* 練習「見回す」：右側をなぞる合図 */}
+      {inPractice && step === "look" && controlsEnabled && (
+        <div className="absolute right-[12%] top-1/2 -translate-y-1/2 z-20 pointer-events-none text-center text-white">
+          <div className="text-5xl animate-bounce">👆</div>
+          <p className="text-sm font-bold bg-black/60 rounded-full px-3 py-1 mt-1">← なぞる →</p>
+        </div>
+      )}
+
+      {/* 本編の第1問：進め方の手順（済んだら✓。強制はしない）。進捗バーの右隣に置く（右上はポスターのラベルが出る位置なので避ける） */}
+      {showGuide && controlsEnabled && (
+        <div className="absolute top-3 left-[12.5rem] z-20 bg-black/60 backdrop-blur rounded-xl px-3 py-2 text-white text-sm pointer-events-none space-y-0.5">
+          <p className="text-xs text-white/70 font-bold">進め方</p>
+          <p className={sawPhone ? "text-green-300" : ""}>{sawPhone ? "✓" : "①"} 📱 スマホの通知を見る</p>
+          <p className={sawRoom ? "text-green-300" : ""}>{sawRoom ? "✓" : "②"} 🏠 部屋の情報を見る</p>
+          <p>③ ⚖️ 見比べて判定する</p>
         </div>
       )}
 
@@ -326,29 +391,31 @@ export default function GameClient() {
 
       {/* 探索ガイド（本編でまだ何も調べていないとき） */}
       {!inPractice && phase === "exploring" && currentInspected.length === 0 && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 text-white/70 text-xs text-center pointer-events-none px-4">
-          左スティックで移動 ・ 右スティックで見回す<br />
-          （PC: WASDで移動・ドラッグで視点） 近づいてタップで調べる
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 text-white/80 text-sm text-center pointer-events-none px-4">
+          左のスティックで移動 ・ 画面をなぞって見回す<br />
+          （PC: WASDで移動・ドラッグで視点） 近づいて🔍をタップで調べる
         </div>
       )}
 
       {/* 下部ボタン：判定（本編は1つ以上調べたら／練習は3項目クリアで表示）＋ヒント（本編の探索中は最初から表示） */}
       {controlsEnabled && (
         <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3">
-          {((inPractice && practiceReady) || (!inPractice && phase === "exploring" && currentInspected.length >= 1)) && (
+          {showJudgeButton && (
             <button
               onClick={openJudge}
-              className={`px-6 py-3 bg-blue-600 text-white font-bold rounded-full shadow-lg pointer-events-auto ${
-                inPractice ? "animate-bounce" : ""
+              className={`px-6 py-3 bg-blue-600 text-white text-base font-bold rounded-full shadow-lg pointer-events-auto ${
+                inPractice ? ring : ""
               }`}
             >
               ⚖️ 判定する
             </button>
           )}
-          {(inPractice || phase === "exploring") && (
+          {showHintButton && (
             <button
               onClick={openHint}
-              className="px-5 py-3 bg-amber-400 text-amber-950 font-bold rounded-full shadow-lg pointer-events-auto"
+              className={`px-5 py-3 bg-amber-400 text-amber-950 text-base font-bold rounded-full shadow-lg pointer-events-auto ${
+                inPractice && step === "hint" ? ring : ""
+              }`}
             >
               💡 ヒント
             </button>
@@ -360,7 +427,7 @@ export default function GameClient() {
       {showHintCard && (inPractice || phase === "exploring") && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 w-[min(90vw,28rem)] bg-amber-100 text-amber-950 rounded-2xl shadow-lg p-3 pointer-events-auto">
           <div className="flex items-start gap-2">
-            <p className="text-sm leading-relaxed flex-1">
+            <p className="text-base leading-relaxed flex-1">
               <span className="font-bold">💡 ヒント：</span>
               {scenario.hint}
             </p>
@@ -371,28 +438,50 @@ export default function GameClient() {
         </div>
       )}
 
-      {/* 移動ジョイスティックゾーン（左下） */}
-      <div id="joystick-zone" className="absolute bottom-0 left-0 w-1/3 h-1/2 pointer-events-auto z-30" />
-      {/* 視点ジョイスティックゾーン（右下） */}
-      <div id="look-zone" className="absolute bottom-0 right-0 w-1/3 h-1/2 pointer-events-auto z-30" />
+      {/* 移動ジョイスティック：親指が届く高さの小さな円だけ（3Dのラベルを覆わない） */}
+      <div
+        id="joystick-zone"
+        className={`absolute z-30 rounded-full pointer-events-auto ${inPractice && step === "move" ? ring : ""}`}
+        style={STICK_STYLE}
+      />
+      {/* 右側：正面に戻す・視点の感度（なぞって見回す操作の補助） */}
+      {controlsEnabled && showLookTools && (
+        <div className="absolute z-30 flex flex-col items-center gap-2" style={LOOK_TOOLS_STYLE}>
+          <button
+            onClick={requestRecenter}
+            className={`w-16 h-16 rounded-full bg-black/60 border border-white/40 text-white text-sm font-bold leading-tight shadow-lg pointer-events-auto ${
+              inPractice && step === "recenter" ? ring : ""
+            }`}
+            aria-label="正面に戻す"
+          >
+            🎯<br />正面
+          </button>
+          <button
+            onClick={() => setSens(cycleSensitivity())}
+            className="px-3 py-1.5 rounded-full bg-black/60 border border-white/30 text-white text-xs font-bold pointer-events-auto"
+          >
+            感度：{SENSITIVITY_LABEL[sens]}
+          </button>
+        </div>
+      )}
 
       {/* 調査パネル */}
       {inspectedObj && (
         <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-40 p-4">
-          <div className="bg-white rounded-2xl p-5 w-full max-w-sm max-h-[90dvh] overflow-y-auto">
-            <h3 className="font-bold text-lg mb-3">
+          <ScrollPanel className="bg-white rounded-2xl p-5 w-full max-w-sm max-h-[90dvh]">
+            <h3 className="font-bold text-xl mb-3">
               {inspectedObj.label}
               {typeof inspectedObj.content !== "string" && (
                 <span className="text-sm font-normal text-gray-500 ml-2">通知 {inspectedObj.content.length}件</span>
               )}
             </h3>
             {typeof inspectedObj.content === "string" ? (
-              <p className="text-gray-700 text-sm mb-4 whitespace-pre-line">{inspectedObj.content}</p>
+              <p className="text-gray-800 text-base leading-relaxed mb-4 whitespace-pre-line">{inspectedObj.content}</p>
             ) : (
               <div className="mb-4 space-y-2">
                 {inspectedObj.content.map((msg, i) => msg.type === "alert" ? (
-                  <div key={i} className="rounded-xl overflow-hidden border-2 border-red-600 text-sm shadow-lg">
-                    <div className="bg-gray-200 px-3 py-1 text-[11px] text-gray-600 flex justify-between">
+                  <div key={i} className="rounded-xl overflow-hidden border-2 border-red-600 text-base shadow-lg">
+                    <div className="bg-gray-200 px-3 py-1 text-xs text-gray-600 flex justify-between">
                       <span>🌐 {msg.sender}</span>
                       <span>{msg.timestamp}</span>
                     </div>
@@ -402,23 +491,23 @@ export default function GameClient() {
                     <div className="bg-white px-3 py-3 space-y-2">
                       <p className="text-red-700 font-bold leading-relaxed">{msg.body}</p>
                       {msg.url && (
-                        <p className="text-sm text-gray-500 break-all">
+                        <p className="text-base text-gray-500 break-all">
                           求められていること：<span className="text-gray-900 font-bold">{msg.url}</span>
                         </p>
                       )}
                     </div>
                   </div>
                 ) : (
-                  <div key={i} className="bg-gray-100 rounded-xl p-3 text-sm space-y-1">
+                  <div key={i} className="bg-gray-100 rounded-xl p-3 text-base space-y-1">
                     {/* 手がかりを別行で明示：表示名・実際の番号/アドレス・日時・本文・リンク先 or 要求内容 */}
-                    <p className="text-sm text-gray-500">送信元：<span className="text-gray-800">{msg.sender}</span></p>
+                    <p className="text-[15px] text-gray-500">送信元：<span className="text-gray-800">{msg.sender}</span></p>
                     {msg.senderAddress && (
-                      <p className="text-sm text-gray-500 break-all">送信元の番号・アドレス：<span className="text-gray-900 font-mono">{msg.senderAddress}</span></p>
+                      <p className="text-[15px] text-gray-500 break-all">送信元の番号・アドレス：<span className="text-gray-900 font-mono">{msg.senderAddress}</span></p>
                     )}
-                    <p className="text-sm text-gray-500">日時：<span className="text-gray-800">{msg.timestamp}</span></p>
+                    <p className="text-[15px] text-gray-500">日時：<span className="text-gray-800">{msg.timestamp}</span></p>
                     <p className="text-gray-900 pt-1 border-t border-gray-200 mt-1">{msg.body}</p>
                     {msg.url && (
-                      <p className="text-sm text-gray-500 break-all pt-1">
+                      <p className="text-[15px] text-gray-500 break-all pt-1">
                         {isLink(msg.url) ? "リンク先：" : "求められていること："}
                         <span className={isLink(msg.url) ? "text-blue-700 font-mono" : "text-gray-900"}>{msg.url}</span>
                       </p>
@@ -427,10 +516,10 @@ export default function GameClient() {
                 ))}
               </div>
             )}
-            <button onClick={handleCloseInspect} className="w-full py-2 bg-gray-800 text-white rounded-xl text-sm font-bold">
+            <button onClick={handleCloseInspect} className="w-full py-2.5 bg-gray-800 text-white rounded-xl text-base font-bold">
               確認した（閉じる）
             </button>
-          </div>
+          </ScrollPanel>
         </div>
       )}
 
@@ -461,7 +550,7 @@ export default function GameClient() {
           onSubmit={handleSubmit}
           onBack={backToExplore}
           hint={scenario.hint}
-          hintUsed={inPractice ? practice.hint : hintUsed}
+          hintUsed={inPractice ? practiceStep > 5 : hintUsed}
         />
       )}
 

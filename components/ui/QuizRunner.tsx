@@ -93,7 +93,7 @@ export function QuizRunner({
     <div className="min-h-dvh bg-gray-950 flex flex-col items-center justify-center px-4 py-6">
       <div className="w-full max-w-md">
         <div className="text-center mb-4">
-          <p className="text-gray-400 text-xs mb-1">{headerLabel}</p>
+          <p className="text-gray-400 text-sm mb-1">{headerLabel}</p>
           <div className="flex gap-1.5 justify-center mb-2">
             {questions.map((_, i) => (
               <div
@@ -104,7 +104,7 @@ export function QuizRunner({
               />
             ))}
           </div>
-          <p className="text-white text-sm font-bold">
+          <p className="text-white text-base font-bold">
             問 {currentQ + 1} / {questions.length}
             <span className="text-gray-400 font-normal ml-2">
               {remaining > 0 ? `あと ${remaining} 問！` : "ラスト1問！"}
@@ -122,12 +122,12 @@ export function QuizRunner({
           >
             {/* 状況 */}
             <div className="bg-gray-800 rounded-2xl p-4 mb-3">
-              <p className="text-[11px] font-bold text-blue-300 mb-1 tracking-wide">状況：{question.title}</p>
-              <p className="text-gray-100 text-sm leading-relaxed">{question.scenario}</p>
+              <p className="text-[13px] font-bold text-blue-300 mb-1 tracking-wide">状況：{question.title}</p>
+              <p className="text-gray-100 text-base leading-relaxed">{question.scenario}</p>
               {question.details?.officialInfo && (
                 <div className="mt-3 rounded-xl border border-emerald-400/50 bg-emerald-500/10 px-3 py-2">
-                  <p className="text-[11px] font-bold text-emerald-300">📌 公式情報（あなたが以前から知っていること）</p>
-                  <p className="text-sm text-emerald-100 break-all">{question.details.officialInfo}</p>
+                  <p className="text-[13px] font-bold text-emerald-300">📌 公式情報（あなたが以前から知っていること）</p>
+                  <p className="text-base text-emerald-100 break-all">{question.details.officialInfo}</p>
                 </div>
               )}
             </div>
@@ -137,9 +137,9 @@ export function QuizRunner({
               <div className="bg-white/95 rounded-2xl p-3 mb-4 shadow-lg border border-white/40">
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="w-6 h-6 rounded-md bg-blue-600 text-white text-xs flex items-center justify-center">✉</span>
-                  <span className="text-[11px] text-gray-500">届いた通知の詳細</span>
+                  <span className="text-[13px] text-gray-500">届いた通知の詳細</span>
                 </div>
-                <div className="text-sm space-y-1">
+                <div className="text-base space-y-1">
                   {question.details.senderAddress && (
                     <p className="text-gray-500 break-all">送信元の番号・アドレス：<span className="text-gray-900 font-mono">{question.details.senderAddress}</span></p>
                   )}
@@ -161,7 +161,7 @@ export function QuizRunner({
             <div className="flex gap-3 mb-4">
               <button
                 onClick={() => !locked && setAnswer("fraud")}
-                className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${
+                className={`flex-1 py-3 rounded-xl font-bold text-base transition-all ${
                   answer === "fraud" ? "bg-red-500 text-white scale-105" : "bg-red-100 text-red-700"
                 }`}
               >
@@ -169,7 +169,7 @@ export function QuizRunner({
               </button>
               <button
                 onClick={() => !locked && setAnswer("safe")}
-                className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${
+                className={`flex-1 py-3 rounded-xl font-bold text-base transition-all ${
                   answer === "safe" ? "bg-green-500 text-white scale-105" : "bg-green-100 text-green-700"
                 }`}
               >
@@ -179,7 +179,7 @@ export function QuizRunner({
 
             {/* 答えを選ぶと確信度が出る。確信度のタップで回答確定 */}
             <div className={`bg-gray-900 rounded-xl p-3 transition-opacity ${answer ? "opacity-100" : "opacity-30 pointer-events-none"}`}>
-              <p className="text-gray-300 text-xs mb-2 text-center">
+              <p className="text-gray-300 text-sm mb-2 text-center">
                 {answer ? "どのくらい自信がある？（タップで次へ）" : "まず答えを選んでください"}
               </p>
               <div className="grid grid-cols-5 gap-1.5">
@@ -190,7 +190,7 @@ export function QuizRunner({
                     className="flex flex-col items-center py-2 rounded-lg bg-gray-800 text-gray-200 active:bg-blue-600 hover:bg-gray-700"
                   >
                     <span className="text-sm font-bold">{i + 1}</span>
-                    <span className="text-[9px] leading-tight mt-0.5 text-gray-400">{label}</span>
+                    <span className="text-[11px] leading-tight mt-0.5 text-gray-400">{label}</span>
                   </button>
                 ))}
               </div>
