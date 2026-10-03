@@ -9,7 +9,12 @@ import { loadCollection } from "@/lib/collection";
 // 学習カードのコレクション（この端末に保存された入手状況）
 export default function CollectionClient() {
   const [owned, setOwned] = useState<string[]>([]);
-  useEffect(() => setOwned(loadCollection()), []);
+  // 結果画面から来たときは、一番下のボタンで結果画面へ戻す（タイトルから来たときはタイトルへ）
+  const [fromResult, setFromResult] = useState(false);
+  useEffect(() => {
+    setOwned(loadCollection());
+    setFromResult(new URLSearchParams(window.location.search).get("from") === "result");
+  }, []);
 
   const count = CARDS.filter((c) => owned.includes(c.id)).length;
   const groups = [
@@ -57,8 +62,8 @@ export default function CollectionClient() {
         ))}
 
         <p className="text-center text-gray-500 text-[11px] mb-4">カードはこの端末のブラウザに保存されます。</p>
-        <Link href="/" className="block w-full py-4 text-center bg-blue-600 text-white text-lg font-black rounded-2xl">
-          タイトルへ戻る
+        <Link href={fromResult ? "/result" : "/"} className="block w-full py-4 text-center bg-blue-600 text-white text-lg font-black rounded-2xl">
+          {fromResult ? "結果画面に戻る" : "タイトルへ戻る"}
         </Link>
       </div>
     </div>

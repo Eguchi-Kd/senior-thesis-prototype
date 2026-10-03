@@ -24,6 +24,28 @@ async function lockTo(dir: "landscape" | "portrait"): Promise<boolean> {
   }
 }
 
+// 全画面に入った直後の ms ミリ秒だけ true。
+// Android の Chrome は全画面に入るたびに画面下へ「全画面表示を終了するには…」を数秒出し、ページからは消せないので、
+// その間は画面下のボタンを上へ逃がすために使う
+export function useJustEnteredFullscreen(ms = 4000): boolean {
+  const [just, setJust] = useState(false);
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const onChange = () => {
+      clearTimeout(t);
+      if (!document.fullscreenElement) return setJust(false);
+      setJust(true);
+      t = setTimeout(() => setJust(false), ms);
+    };
+    document.addEventListener("fullscreenchange", onChange);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("fullscreenchange", onChange);
+    };
+  }, [ms]);
+  return just;
+}
+
 const APPLE_HELP = "画面の向きのロックを解除して（コントロールセンターの🔒）、スマホを回してください";
 
 // dir="landscape"：横向きにする（本編の前）／ dir="portrait"：縦向きに戻す（事後テストの前）

@@ -474,7 +474,7 @@ function ScoreScreen({
             </Collapsible>
 
             {wrongLogs.length > 0 && (
-              <Collapsible title={`復習しよう（間違えた問題 ${wrongLogs.length}問）`}>
+              <Collapsible title={`復習しよう（ゲーム本編で間違えた問題 ${wrongLogs.length}問）`}>
                 <div className="space-y-2">
                   {wrongLogs.map((l) => {
                     const s = getScenarioById(l.scenarioId);
@@ -491,7 +491,7 @@ function ScoreScreen({
             )}
 
             {!freePlay && (
-              <Collapsible title="テストの答え合わせ">
+              <Collapsible title="事前・事後テストの答え合わせ">
                 <AnswerReview label="事前テスト" logs={preTestLogs} />
                 <AnswerReview label="事後テスト" logs={transferTestLogs} />
               </Collapsible>
@@ -506,8 +506,8 @@ function ScoreScreen({
                 </div>
                 <span className="text-white font-black text-sm shrink-0">{collected}/{TOTAL_CARDS}</span>
               </div>
-              <Link href="/collection" className="block w-full py-2 text-center bg-indigo-600 text-white rounded-xl font-bold text-sm">
-                コレクションを見る
+              <Link href="/collection?from=result" className="block w-full py-2 text-center bg-indigo-600 text-white rounded-xl font-bold text-sm">
+                シナリオ・タイプカード コレクションを見る
               </Link>
             </div>
 
@@ -533,8 +533,15 @@ function ScoreScreen({
               </div>
             </div>
 
-            <button onClick={onReplay} className="w-full py-3 bg-blue-600 text-white font-black rounded-2xl">
-              もう一度プレイ →
+            <button
+              onClick={() => {
+                // 送信が確認できる前に押すと、この端末の回答が消えて取り戻せないので確認する
+                if (saveState !== "confirmed" && !window.confirm("まだデータの送信が確認できていません。タイトルに戻ると、この端末の回答が消えます。戻りますか？")) return;
+                onReplay();
+              }}
+              className="w-full py-3 bg-blue-600 text-white font-black rounded-2xl"
+            >
+              タイトルに戻る
             </button>
           </div>
         </div>

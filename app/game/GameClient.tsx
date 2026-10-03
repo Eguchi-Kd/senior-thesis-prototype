@@ -10,7 +10,7 @@ import { PostFX } from "@/components/game/PostFX";
 import { ConfidenceSlider } from "@/components/ui/ConfidenceSlider";
 import { FeedbackCard } from "@/components/ui/FeedbackCard";
 import { StageScreen } from "@/components/ui/StageScreen";
-import { OrientationButton } from "@/components/ui/OrientationButton";
+import { OrientationButton, useJustEnteredFullscreen } from "@/components/ui/OrientationButton";
 import { ScrollPanel } from "@/components/ui/ScrollHint";
 import { cycleSensitivity, getSensitivity, requestRecenter, SENSITIVITY_LABEL, type LookSensitivity } from "@/lib/lookControl";
 import { useDevice } from "@/lib/device";
@@ -147,6 +147,8 @@ export default function GameClient() {
   const [showHintCard, setShowHintCard] = useState(false);
   const device = useDevice();
   const isPC = device === "pc";
+  // 全画面に入った直後は Chrome の通知が画面下に出るので、下のボタンを上へ逃がす
+  const justFullscreen = useJustEnteredFullscreen(4000);
   // 練習：段階をクリアしたときに画面中央へ出す表示（約1.4秒。操作は止めない）
   const [stepToast, setStepToast] = useState<{ n: number; title: string; next: string } | null>(null);
   const prevStep = useRef(0);
@@ -321,8 +323,10 @@ export default function GameClient() {
             ? "🖱️ マウスとキーボードで操作します。"
             : device === "ios"
               ? "📱 画面の回転ロックを解除して、スマホを横向きにしてプレイしてください。"
-              : "📱 スマホは横向きでプレイしてください（次の画面のボタンでも横向きにできます）。"}
+              : "📱 スマホは横向きでプレイしてください。下のボタンで横向きにできます。"}
         </p>
+        {/* Android：部屋に入る前に横向き（全画面）にしておく。全画面の通知がこの画面の上で出て消え、ゲームのボタンを隠さない */}
+        {device === "android" && <OrientationButton dir="landscape" />}
       </StageScreen>
     );
   }
@@ -454,7 +458,7 @@ export default function GameClient() {
       )}
 
       {/* 操作説明（練習中と、第1問でまだ何も調べていないとき。2問目以降は出さない） */}
-      {controlsEnabled && (inPractice || (currentIndex === 0 && phase === "exploring" && currentInspected.length === 0)) && (
+      {controlsEnabled && !justFullscreen && (inPractice || (currentIndex === 0 && phase === "exploring" && currentInspected.length === 0)) && (
         <div className="absolute bottom-20 left-1/2 -translate-x-1/2 text-white/80 text-sm text-center pointer-events-none px-4 [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
           {isPC ? (
             <>WASD・矢印キーで移動 ・ ドラッグで見回す<br />🔍 をクリックで調べる</>
@@ -466,7 +470,11 @@ export default function GameClient() {
 
       {/* 下部ボタン：判定（本編は1つ以上調べたら／練習は3項目クリアで表示）＋ヒント（本編の探索中は最初から表示） */}
       {controlsEnabled && (
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3">
+        <div
+          className={`absolute left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 transition-[bottom] duration-300 ${
+            justFullscreen ? "bottom-24" : "bottom-5"
+          }`}
+        >
           {showJudgeButton && (
             <button
               onClick={openJudge}
